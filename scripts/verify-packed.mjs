@@ -9,14 +9,33 @@ const npmCache = process.env.npm_config_cache || (existsSync('.local/npm-cache/_
 await mkdir('.local/verify', { recursive: true });
 const temp = await mkdtemp(resolve('.local/verify/run-'));
 const manifests = JSON.parse(await readFile('.local/dist/manifest.json', 'utf8'));
-const packages = manifests.map(p => resolve('.local/dist', p.filename));
-await writeFile(join(temp, 'package.json'), JSON.stringify({ name: 'packed-check', private: true, type: 'module' }));
+const fixture = { name: 'packed-check', private: true, type: 'module', dependencies: Object.fromEntries(manifests.map(p => [p.name, 'file:' + resolve('.local/dist', p.filename)])) };
+await writeFile(join(temp, 'package.json'), JSON.stringify(fixture));
+// npm ci caches tarballs, but need not cache registry metadata. Reuse its exact
+// dependency graph so this offline consumer never needs a registry resolution.
+const workspaceLock = JSON.parse(await readFile('package-lock.json', 'utf8'));
+const packages = Object.fromEntries(Object.entries(workspaceLock.packages).filter(([path, value]) => path.startsWith('node_modules/') && !value.link));
+packages[''] = fixture;
+for (const entry of manifests) {
+  const manifest = JSON.parse(await readFile(`packages/${entry.folder}/package.json`, 'utf8'));
+  const prefix = `packages/${entry.folder}/`;
+  for (const [path, dependency] of Object.entries(workspaceLock.packages)) {
+    if (path.startsWith(prefix + 'node_modules/') && !dependency.link) {
+      packages[`node_modules/${entry.name}/${path.slice(prefix.length)}`] = dependency;
+    }
+  }
+  packages['node_modules/' + entry.name] = {
+    version: entry.version, resolved: fixture.dependencies[entry.name], integrity: entry.integrity,
+    ...Object.fromEntries(['dependencies', 'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta', 'engines', 'bin', 'os', 'cpu'].filter(key => manifest[key]).map(key => [key, manifest[key]])),
+  };
+}
+await writeFile(join(temp, 'package-lock.json'), JSON.stringify({ name: fixture.name, lockfileVersion: 3, requires: true, packages }));
 function npm(args, cwd = temp) {
   const r = spawnSync('npm', args, { cwd, encoding: 'utf8', shell: process.platform === 'win32', env: { ...process.env, npm_config_cache: npmCache } });
   if (r.status !== 0) throw new Error(r.stdout + '\n' + r.stderr);
   return r.stdout;
 }
-npm(['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', ...packages]);
+npm(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
 const cli = join(temp, 'node_modules/@zaimokuza/create-dsh-plugin-hub/lib/bin.js');
 for (const kind of ['market', 'source']) {
   const directory = join(temp, kind);
