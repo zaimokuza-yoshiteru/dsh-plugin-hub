@@ -85,10 +85,11 @@ export function evaluateVersion(version, manifest, publishedAt, host, now, minim
     }
   }
   const publishedMs = typeof publishedAt === 'string' ? Date.parse(publishedAt) : NaN;
-  const eligibleAt = Number.isFinite(publishedMs) ? new Date(publishedMs + minimumAgeHours * 3600000).toISOString() : null;
+  const minimumAgeMinutes = Math.round(minimumAgeHours * 60);
+  const eligibleAt = Number.isFinite(publishedMs) ? new Date(publishedMs + minimumAgeMinutes * 60000).toISOString() : null;
   const age = eligibleAt === null ? 'unknown' : Date.parse(eligibleAt) <= now ? 'ready' : 'waiting';
   if (age === 'unknown') reasons.push('仓库未返回有效发布时间');
-  if (age === 'waiting') reasons.push(`发布未满 ${minimumAgeHours} 小时`);
+  if (age === 'waiting') reasons.push(Number.isInteger(minimumAgeHours) ? `发布未满 ${minimumAgeHours} 小时` : `发布未满 ${minimumAgeMinutes} 分钟`);
   if (manifest.deprecated) reasons.push(`已弃用：${manifest.deprecated}`);
   const canInstall = compatibility === 'compatible' && age === 'ready' && !manifest.deprecated;
   return { version, compatibilityBasis: declaration.basis, publishedAt: Number.isFinite(publishedMs) ? new Date(publishedMs).toISOString() : null, dshRange, compatibility, age, eligibleAt, canInstall, reasons };

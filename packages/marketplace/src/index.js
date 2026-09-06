@@ -7,6 +7,7 @@ import { Marketplace } from './service.js';
 import { dshEnvironment, createDshInstaller } from './dsh.js';
 import { PACKAGE_NAME, validateCatalog } from './catalog.js';
 import { createProviderApi } from './provider-api.js';
+import { readReleaseAge } from './release-age.js';
 
 export const name = MARKET_PACKAGE;
 export const inject = ['webServer', 'connection'];
@@ -33,11 +34,10 @@ export async function apply(ctx, options = {}) {
   if (!PACKAGE_NAME.test(source.packageName)) throw new Error('目录 npm 包名无效');
   const registry = new URL(options.registry ?? 'https://registry.npmjs.org/');
   if (registry.protocol !== 'https:' || registry.username || registry.password) throw new Error('npm registry 必须是无凭据的 HTTPS 地址');
-  const minimumAgeHours = options.minimumAgeHours ?? 48;
-  if (!Number.isInteger(minimumAgeHours) || minimumAgeHours < 0) throw new Error('minimumAgeHours 必须为非负整数');
+  const releaseAge = await readReleaseAge(environment.profileDir);
   const sources = options.catalogSources ?? [{ id: 'company', displayName: source.packageName === CATALOG_PACKAGE ? 'Demo catalog' : brand.title, ...source, priority: 100 }];
   if (!Array.isArray(sources) || sources.length > 20 || sources.some(s => s?.kind !== 'npm')) throw new Error('catalogSources must contain at most 20 npm sources; JSON providers register through the plugin API');
-  const config = { source, sources, brand, identity, packageName: options.packageName ?? MARKET_PACKAGE, registry: registry.href.replace(/\/?$/, '/'), cacheDir: join(environment.profileDir, '.dsh-plugin-hub', identity.id), minimumAgeHours };
+  const config = { source, sources, brand, identity, packageName: options.packageName ?? MARKET_PACKAGE, registry: registry.href.replace(/\/?$/, '/'), cacheDir: join(environment.profileDir, '.dsh-plugin-hub', identity.id), ...releaseAge };
   const installer = createDshInstaller(environment, config);
   const market = new Marketplace({ config, host: environment.host, fetcher: createRegistryFetch(config.registry), installer });
   // The public package ships an independent catalog snapshot for first-open discovery.

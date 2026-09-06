@@ -1,5 +1,8 @@
 // Registered with the DSH locale service. Catalog copy remains data-owned.
 const pairs = [
+  ['冷静期：{minutes} 分钟 · {source}', 'Release age: {minutes} minutes · {source}'],
+  ['本机 pnpm 配置', 'Local pnpm configuration'], ['默认 48 小时', 'Default 48 hours'],
+  ['未满 {minutes} 分钟', 'Under {minutes} minutes'], ['预计满 {minutes} 分钟：{date}', 'Eligible after {minutes} minutes: {date}'],
   ['不按版本限制，运行时检查接口','No version gate; runtime API checks'],
   ['目录格式不受支持：需要 schemaVersion: 1 和 plugins 数组','Unsupported catalog: expected schemaVersion: 1 and a plugins array'],
   ['目录最多支持 25000 个插件','A catalog supports at most 25000 plugins'],
@@ -91,6 +94,7 @@ export function diagnostic(value, t, language) {
     .replace(/(.+) 要求 (.+)，当前为 (.+)/g, '$1 requires $2; current version is $3')
     .replace(/不支持当前 (os|cpu): (.+)/g, 'Unsupported $1: $2')
     .replace(/发布未满 (\d+) 小时/g, 'Published less than $1 hours ago')
+    .replace(/发布未满 (\d+) 分钟/g, 'Published less than $1 minutes ago')
     .replace(/已弃用：(.*)/g, 'Deprecated: $1');
 }
 

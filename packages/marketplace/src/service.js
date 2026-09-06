@@ -111,6 +111,7 @@ export class Marketplace {
     const sourceState = this.providers.snapshot();
     return {
       metadataProgress: this.metadataProgress, lazyMetadata: this.lazyMetadata,
+      minimumAgeMinutes: this.config.minimumAgeMinutes ?? Math.round(this.config.minimumAgeHours * 60), releaseAgeSource: this.config.releaseAgeSource ?? 'default',
       brand: this.config.brand, marketId: this.config.identity?.id, sources: sourceState.sources, sourceConflicts: sourceState.conflicts,
       marketVersion: '0.1.0', host: this.host, demo: Boolean(this.demo), minimumAgeHours: this.config.minimumAgeHours,
       catalog: { version: this.catalog?.version ?? null, updatedAt: this.catalog?.updatedAt ?? null, source: this.catalog?.source ?? this.config.source?.packageName ?? '', error: this.catalogError, stale: sourceState.sources.some(s => s.stale), count: this.plugins.length },

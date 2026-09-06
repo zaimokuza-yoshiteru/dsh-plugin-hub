@@ -88,11 +88,11 @@ scope.effect(() => scope.dshPluginHub_hub.registerSource({
 
 ### 兼容性与安装
 
-市场本身和 CLI 生成的市场 / 子来源默认不设置 `engines.dsh`，因此不会仅因 DSH 版本变化被本市场拦截，后续 alpha、rc 和正式版均允许尝试。必要宿主接口缺失时才报错，真实接口变化仍可能需要修复。`dshPluginHub.hostCompatibility: "capability-based"` 是本项目自定义的显式策略，不是 DSH 官方规范；`testedDshVersions` 只记录已实测版本，不作为白名单。第三方市场可能不识别该策略。第三方插件原有版本约束、Node 要求和 48 小时等待期不变。
+市场本身和 CLI 生成的市场 / 子来源默认不设置 `engines.dsh`，因此不会仅因 DSH 版本变化被本市场拦截，后续 alpha、rc 和正式版均允许尝试。必要宿主接口缺失时才报错，真实接口变化仍可能需要修复。`dshPluginHub.hostCompatibility: "capability-based"` 是本项目自定义的显式策略，不是 DSH 官方规范；`testedDshVersions` 只记录已实测版本，不作为白名单。第三方市场可能不识别该策略。第三方插件原有版本约束与 Node 要求不变，冷静期按下述本机配置读取。
 
 读取 `engines.dsh`、DSH peerDependencies，以及作者已有的 `dsh.engines.dsh`、`dsh.compatibility.dsh` / `dshReleases`。声明冲突或证据不足时保留未知，预发行版本遵守 SemVer，不自动放宽。rc.1 前端内置模块有单独的已验证版本记录；不把任意开发依赖算作宿主接口。
 
-默认发布满 48 小时才可安装，可通过市场插件配置 `minimumAgeHours` 调整。使用当前 DSH 可执行文件及 `web` profile 安装/卸载，遵守 `DSH_HOME` 或默认 `~/.dsh`，不推测 npx/pnpm 的临时缓存位置。多个操作完成后统一手动重启。目录包的刷新不要求重启。
+启动时在 DSH 安装 profile 目录执行本机 `pnpm config get minimumReleaseAge --json`，读取该目录下生效的环境、项目和用户配置；使用非负整数分钟，`0` 有效。没有有效值、pnpm 不可用或读取失败时回退到 2880 分钟（48 小时）。修改配置后重启 DSH 生效；不再需要设置市场的 `minimumAgeHours`。页面与安装命令使用同一冷静期。这里只读取 `minimumReleaseAge`，不复制 pnpm 的排除列表等其他策略；实际安装还会检查传递依赖。使用当前 DSH 可执行文件及 `web` profile 安装/卸载，遵守 `DSH_HOME` 或默认 `~/.dsh`，不推测 npx/pnpm 的临时缓存位置。多个操作完成后统一手动重启。目录包的刷新不要求重启。
 
 ## English
 
@@ -127,8 +127,8 @@ The default service is `dshPluginHub_hub`; branded markets use `dshPluginHub_` p
 
 ### Compatibility and installation
 
-The marketplace and CLI-generated markets/sources omit `engines.dsh` by default, so this marketplace does not block them solely for a different DSH version, including future alpha, RC and stable releases. Missing required host APIs fail at runtime; actual API changes may still require fixes. `dshPluginHub.hostCompatibility: "capability-based"` is this project’s explicit custom policy, not an official DSH standard. `testedDshVersions` records tested hosts without acting as an allowlist. Other marketplaces may not recognize this policy. Third-party version constraints, Node requirements and the 48-hour age check stay unchanged.
+The marketplace and CLI-generated markets/sources omit `engines.dsh` by default, so this marketplace does not block them solely for a different DSH version, including future alpha, RC and stable releases. Missing required host APIs fail at runtime; actual API changes may still require fixes. `dshPluginHub.hostCompatibility: "capability-based"` is this project’s explicit custom policy, not an official DSH standard. `testedDshVersions` records tested hosts without acting as an allowlist. Other marketplaces may not recognize this policy. Third-party version constraints and Node requirements stay unchanged; release age follows the local configuration below.
 
 The marketplace reads `engines.dsh`, DSH peerDependencies and the author-declared `dsh.engines.dsh`, `dsh.compatibility.dsh` / `dshReleases` formats. Conflicts or insufficient evidence remain unknown. Prereleases follow SemVer without implicit widening. Verified rc.1 frontend module versions are tracked separately; arbitrary development dependencies are not host interfaces.
 
-The default minimum release age is 48 hours, configurable through `minimumAgeHours`. Install/uninstall uses the running DSH executable and `web` profile, honoring `DSH_HOME` or `~/.dsh`, without guessing npx/pnpm cache paths. Restart manually after completing several operations. Catalog refreshes do not require restarting DSH.
+At startup, the locally installed `pnpm config get minimumReleaseAge --json` runs in the DSH installation profile to read effective environment, project and user configuration. Non-negative integer minutes are accepted, including `0`. Missing/invalid configuration, an unavailable pnpm or a failed read falls back to 2880 minutes (48 hours). Restart DSH after configuration changes; the market no longer needs a `minimumAgeHours` setting. Display and installation use the same delay. Only `minimumReleaseAge` is read, not exclusion lists or other pnpm policies; installation also checks transitive dependencies. Install/uninstall uses the running DSH executable and `web` profile, honoring `DSH_HOME` or `~/.dsh`, without guessing npx/pnpm cache paths. Restart manually after completing several operations. Catalog refreshes do not require restarting DSH.

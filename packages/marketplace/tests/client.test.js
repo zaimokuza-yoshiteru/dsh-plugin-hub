@@ -26,6 +26,7 @@ test('English diagnostics translate compatibility, age and catalog errors withou
   const t = translate('en');
   assert.equal(diagnostic('要求 DSH >=0.2.0，当前为 0.1.3-alpha.1', t, 'en'), 'Requires DSH >=0.2.0; current version is 0.1.3-alpha.1');
   assert.equal(diagnostic('发布未满 48 小时', t, 'en'), 'Published less than 48 hours ago');
+  assert.equal(diagnostic('发布未满 31 分钟', t, 'en'), 'Published less than 31 minutes ago');
   assert.equal(diagnostic('请求失败（HTTP 502）', t, 'en'), 'Request failed (HTTP 502)');
   assert.match(diagnostic('返回内容不是有效 JSON，已保留上一份可用数据', t, 'en'), /Invalid JSON/);
   assert.equal(diagnostic('目录第 2 条：npm 包名重复', t, 'en'), 'Catalog entry 2: Duplicate npm package name');

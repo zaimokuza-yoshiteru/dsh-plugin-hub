@@ -3,6 +3,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { collectHostPeers } from './host-peers.js';
+import { releaseAgeArgument } from './release-age.js';
 
 /** All knowledge about the DSH process and its profile lives in this adapter. */
 export function dshEnvironment(profile = 'web') {
@@ -43,7 +44,7 @@ export function createDshInstaller(environment, config) {
   return {
     installed,
     async install(packageName, version, log) {
-      const args = [...process.execArgv, environment.cli, 'plugin', '--profile', environment.profile, 'add', `${packageName}@${version}`, '--save-exact', `--registry=${config.registry}`, `--config.minimumReleaseAge=${config.minimumAgeHours * 60}`];
+      const args = [...process.execArgv, environment.cli, 'plugin', '--profile', environment.profile, 'add', `${packageName}@${version}`, '--save-exact', `--registry=${config.registry}`, releaseAgeArgument(config)];
       log(`安装 ${packageName}@${version}`);
       await run(args, log);
       if ((await installed())[packageName] !== version) throw new Error('安装命令结束，但实际版本不匹配');
