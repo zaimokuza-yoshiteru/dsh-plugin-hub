@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm test --workspaces --if-present",
+    "test": "node --test scripts/*.test.mjs && npm test --workspaces --if-present",
     "check": "npm test && npm run build && npm run pack:all && npm run verify:packed",
     "pack:all": "node scripts/pack.mjs",
     "verify:packed": "node scripts/verify-packed.mjs"

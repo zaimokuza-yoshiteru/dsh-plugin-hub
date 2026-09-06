@@ -37,7 +37,7 @@ npm run build
 npm pack
 ```
 
-生成的是可配置的真实 DSH 插件项目。也可使用 `create-source` 生成部门或团队来源；已有插件可以直接调用数据扩展接口，不依赖生成器。完整示例见[使用与目录规范](docs/guide.md)。上述 npm 命令需相应包已在仓库中可用。
+生成的是可配置的真实 DSH 插件项目。也可使用 `create-source` 生成部门或团队来源；已有插件可以直接调用数据扩展接口，不依赖生成器。完整示例见[使用与目录规范](docs/guide.md)。内网使用时需确保相应包已同步到配置的仓库。
 
 ## 界面与演示
 
@@ -71,7 +71,7 @@ dsh plugin --profile web add @zaimokuza/dsh-plugin-hub
 dsh plugin --profile web add @zaimokuza/dsh-plugin-hub-source-demo
 ```
 
-包在 npm 中可用后，安装并手动重启 DSH，进入 **设置 → Plugin Hub**。要求 Node `^22.19.0 || >=24.0.0`；已实测 DSH `0.1.2-rc.1`。
+安装并手动重启 DSH，进入 **设置 → Plugin Hub**。要求 Node `^22.19.0 || >=24.0.0`；已实测 DSH `0.1.2-rc.1`。[npm 包](https://www.npmjs.com/package/@zaimokuza/dsh-plugin-hub)
 
 市场自身与生成项目不按 DSH 版本号拦截，必要接口缺失时会报错。第三方插件仍按各自声明检查；“符合安装条件”不代表已经运行验证。第三方说明保留原文，目录可用 `locales` 提供翻译。
 
@@ -106,7 +106,7 @@ The UI shows the effective delay and its source, and the same minutes are passed
 
 ### Build quickly with the CLI
 
-Templates ship in npm, so generating branded markets and source plugins **does not require GitHub access**. Use the CLI/build commands above once the packages are available in your registry. `create-market` creates a real configurable DSH plugin; `create-source` creates a department/team source. Existing plugins may contribute lists directly without the generator. See the bilingual [guide](docs/guide.md).
+Templates ship in npm, so generating branded markets and source plugins **does not require GitHub access**. Use the CLI/build commands above; internal registries must have the corresponding packages available. `create-market` creates a real configurable DSH plugin; `create-source` creates a department/team source. Existing plugins may contribute lists directly without the generator. See the bilingual [guide](docs/guide.md).
 
 ### Interface and demo packages
 
@@ -118,6 +118,6 @@ The five packages above separate runtime/API, CLI, main demo catalog, demo sourc
 
 ### Installation and compatibility
 
-Once the packages are available, use the installation commands above, restart DSH and open **Settings → Plugin Hub**. Node `^22.19.0 || >=24.0.0` is required; DSH `0.1.2-rc.1` has been tested. The market and generated projects do not gate DSH by version; missing required APIs fail at runtime. Third-party declarations remain enforced. Eligibility is not runtime certification. Catalogs can translate author descriptions through `locales`.
+Use the installation commands above, restart DSH and open **Settings → Plugin Hub**. Node `^22.19.0 || >=24.0.0` is required; DSH `0.1.2-rc.1` has been tested. The market and generated projects do not gate DSH by version; missing required APIs fail at runtime. Third-party declarations remain enforced. Eligibility is not runtime certification. Catalogs can translate author descriptions through `locales`. [npm package](https://www.npmjs.com/package/@zaimokuza/dsh-plugin-hub)
 
 Run `npm ci` and `npm run check` to build and verify locally. MIT; see the [third-party notices](packages/marketplace/THIRD_PARTY_NOTICES.md).

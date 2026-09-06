@@ -1,0 +1,65 @@
+name: Publish npm
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to npm / 发布到 npm（关闭时仅验证）'
+        type: boolean
+        default: false
+      package:
+        description: 'Package selection / 发布范围'
+        type: choice
+        default: all
+        options: [all, catalog, source-catalog-demo, marketplace, source-demo, cli]
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'zaimokuza-yoshiteru/dsh-plugin-hub' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: node scripts/release.mjs
+        env:
+          RELEASE_PACKAGE: ${{ inputs.package }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-release
+          path: .local/dist/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    if: inputs.publish
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: npm install --global npm@11.17.0 --registry=https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-release
+          path: .local/dist
+      - run: node scripts/release.mjs --publish
+        env:
+          RELEASE_PACKAGE: ${{ inputs.package }}
