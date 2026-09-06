@@ -1,0 +1,30 @@
+{
+  "name": "@zaimokuza/dsh-plugin-hub-source-catalog-demo",
+  "version": "0.1.0",
+  "description": "Demo catalog containing two DSH plugins by zaimokuza-yoshiteru",
+  "license": "MIT",
+  "author": {
+    "name": "zaimokuza-yoshiteru"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub.git",
+    "directory": "packages/source-catalog-demo"
+  },
+  "homepage": "https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub",
+  "bugs": {
+    "url": "https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "plugins.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node ../catalog/scripts/build.mjs ../source-catalog-demo/plugins.json"
+  }
+}

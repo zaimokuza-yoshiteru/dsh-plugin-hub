@@ -1,0 +1,19 @@
+{
+  "name": "dsh-plugin-hub-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "check": "npm test && npm run build && npm run pack:all && npm run verify:packed",
+    "pack:all": "node scripts/pack.mjs",
+    "verify:packed": "node scripts/verify-packed.mjs"
+  },
+  "version": "0.1.0",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  }
+}

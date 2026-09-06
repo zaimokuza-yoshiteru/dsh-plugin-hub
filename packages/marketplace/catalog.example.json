@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "plugins": [
+    {
+      "packageName": "@zaimokuza/dsh-acp-adapter",
+      "displayName": "Devin / ACP 接入",
+      "description": "通过 ACP 连接公司已提供的 Devin；实际可用性取决于命令配置和用户认证。",
+      "owner": "示例维护团队（待替换）",
+      "origin": "community",
+      "tags": [
+        "agent",
+        "integration"
+      ],
+      "troubleshootingUrl": "https://confluence.example.invalid/pages/viewpage.action?pageId=123456",
+      "documentationUrl": "https://confluence.example.invalid/pages/viewpage.action?pageId=123455"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+.local/
+node_modules/
+**/lib/
+.idea/
+.DS_Store
+*.tgz
+.env
+.env.*
+!.env.example
+.npmrc.local
+npm-debug.log*
