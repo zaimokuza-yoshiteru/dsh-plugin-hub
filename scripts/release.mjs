@@ -42,6 +42,18 @@ export async function getManifest(name, version, fetcher = fetch) {
   return response.json();
 }
 
+export async function waitForPublished(entry, { lookup = getManifest, pause = ms => new Promise(resolve => setTimeout(resolve, ms)), attempts = 60 } = {}) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const published = await lookup(entry.name, entry.version);
+    if (published) {
+      if (published.dist?.integrity !== entry.integrity) throw new Error(`Published integrity mismatch: ${entry.name}`);
+      return;
+    }
+    if (attempt + 1 < attempts) await pause(5000);
+  }
+  throw new Error(`Published version is not visible yet: ${entry.name}@${entry.version}; rerun after registry propagation.`);
+}
+
 async function main() {
   const publish = process.argv.includes('--publish');
   if (publish && (process.env.GITHUB_ACTIONS !== 'true' || process.env.GITHUB_REPOSITORY !== 'zaimokuza-yoshiteru/dsh-plugin-hub' || process.env.GITHUB_REF !== 'refs/heads/main')) {
@@ -57,14 +69,9 @@ async function main() {
   for (const entry of plan.filter(entry => !entry.published)) {
     const result = spawnSync('npm', ['publish', resolve(dir, entry.filename), '--access', 'public', '--tag', 'latest', `--registry=${registry}`, '--provenance'], { stdio: 'inherit' });
     if (result.status !== 0) throw new Error(`Publishing failed: ${entry.name} (${result.status ?? result.error})`);
-    // Wait for registry visibility before publishing a dependent package.
-    let published;
-    for (let attempt = 0; attempt < 12; attempt++) {
-      published = await getManifest(entry.name, entry.version);
-      if (published) break;
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    }
-    if (published?.dist?.integrity !== entry.integrity) throw new Error(`Published integrity could not be verified: ${entry.name}`);
+    // npm propagation can take minutes even after a successful publish.
+    console.log(`Verifying registry visibility: ${entry.name}@${entry.version}`);
+    await waitForPublished(entry);
   }
 }
 

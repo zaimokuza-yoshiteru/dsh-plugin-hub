@@ -1,13 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { releasePlan, getManifest } from './release.mjs';
+import { releasePlan, getManifest, waitForPublished } from './release.mjs';
 
 const bytes = Buffer.from('verified artifact');
 const integrity = 'sha512-' + createHash('sha512').update(bytes).digest('base64');
 const catalog = { folder: 'catalog', name: '@zaimokuza/catalog', version: '0.1.0', filename: 'catalog.tgz', integrity, dependencies: {} };
 const market = { ...catalog, folder: 'marketplace', name: '@zaimokuza/market', filename: 'market.tgz', dependencies: { '@zaimokuza/catalog': '0.1.0' } };
 const io = { readTarball: async () => bytes, getManifest: async () => null };
+
+test('publication verification tolerates propagation delay but rejects digest mismatches and bounded timeouts', async () => {
+  let requests = 0;
+  const pauses = [];
+  await waitForPublished(catalog, { lookup: async () => ++requests < 10 ? null : { dist: { integrity } }, pause: async ms => pauses.push(ms) });
+  assert.equal(requests, 10);
+  assert.deepEqual(pauses, Array(9).fill(5000));
+  await assert.rejects(waitForPublished(catalog, { lookup: async () => ({ dist: { integrity: 'different' } }), pause: async () => assert.fail('Do not retry mismatches') }), /integrity mismatch/);
+  await assert.rejects(waitForPublished(catalog, { lookup: async () => null, pause: async () => {}, attempts: 2 }), /not visible yet/);
+});
 
 test('post-publish verification bypasses cached preflight 404s without hiding registry errors', async () => {
   const requests = [];
