@@ -24,7 +24,7 @@ const pairs = [
   ['声明不支持当前 DSH profile','This DSH profile is not covered by the declaration'],
   ['作者逐版本声明','Author release declaration'],
   ['不支持的请求方法','Unsupported request method'], ['接口不存在','Endpoint not found'], ['请求过大','Request body is too large'],
-  ['目录 npm 包没有 integrity，无法校验','Catalog package has no integrity field'],
+  ['目录 npm 包缺少有效的 integrity 或 shasum，无法校验','Catalog package has no valid integrity or shasum for verification'],
   ['目录 npm 包完整性校验失败','Catalog package integrity check failed'],
   ['目录来源必须是 npm 数据包','Catalog source must be an npm data package'],
   ['目录 npm 包没有可下载的 latest 版本','Catalog package has no downloadable latest release'],

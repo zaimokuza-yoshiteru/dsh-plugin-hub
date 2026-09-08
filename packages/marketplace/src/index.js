@@ -1,4 +1,4 @@
-import { MARKET_PACKAGE, CATALOG_PACKAGE, marketIdentity, normalizeBrand } from './identity.js';
+import { MARKET_PACKAGE, CATALOG_PACKAGE, marketIdentity, normalizeBrand, catalogVerification } from './identity.js';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -37,7 +37,7 @@ export async function apply(ctx, options = {}) {
   const releaseAge = await readReleaseAge(environment.profileDir);
   const sources = options.catalogSources ?? [{ id: 'company', displayName: source.packageName === CATALOG_PACKAGE ? 'Demo catalog' : brand.title, ...source, priority: 100 }];
   if (!Array.isArray(sources) || sources.length > 20 || sources.some(s => s?.kind !== 'npm')) throw new Error('catalogSources must contain at most 20 npm sources; JSON providers register through the plugin API');
-  const config = { source, sources, brand, identity, packageName: options.packageName ?? MARKET_PACKAGE, registry: registry.href.replace(/\/?$/, '/'), cacheDir: join(environment.profileDir, '.dsh-plugin-hub', identity.id), ...releaseAge };
+  const config = { source, sources, brand, identity, catalogVerification: catalogVerification(options.catalogVerification), packageName: options.packageName ?? MARKET_PACKAGE, registry: registry.href.replace(/\/?$/, '/'), cacheDir: join(environment.profileDir, '.dsh-plugin-hub', identity.id), ...releaseAge };
   const installer = createDshInstaller(environment, config);
   const market = new Marketplace({ config, host: environment.host, fetcher: createRegistryFetch(config.registry), installer });
   // The public package ships an independent catalog snapshot for first-open discovery.

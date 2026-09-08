@@ -3,11 +3,13 @@ import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PACKAGE_NAME, validateCatalog } from './catalog.js';
 import { loadCatalogSource } from './source.js';
+import { catalogVerification as validateVerification } from './identity.js';
 
 /** Host-only v1 API. Providers contribute data; registry and installation policy stay market-owned. */
 export class CatalogProviders {
-  constructor({ cacheDir, registry, fetcher, onChange = () => {}, timeoutMs = 15000 }) {
+  constructor({ cacheDir, registry, fetcher, onChange = () => {}, timeoutMs = 15000, catalogVerification = 'if-present' }) {
     Object.assign(this, { cacheDir, registry, fetcher, onChange, timeoutMs });
+    this.catalogVerification = validateVerification(catalogVerification);
     this.entries = new Map();
   }
   registerSource(input, { primary = false } = {}) {
@@ -21,7 +23,7 @@ export class CatalogProviders {
     if (input.displayName !== undefined && (typeof input.displayName !== 'string' || input.displayName.length > 80)) throw new Error('Invalid source displayName');
     if (input.cacheVersion !== undefined && (typeof input.cacheVersion !== 'string' || input.cacheVersion.length > 80)) throw new Error('Invalid source cacheVersion');
     const source = Object.freeze({ ...input, displayName: input.displayName || input.id, priority: input.priority ?? 0 });
-    const key = JSON.stringify([this.registry, source.id, source.kind, source.packageName, source.cacheVersion ?? '1']);
+    const key = JSON.stringify([this.registry, source.id, source.kind, source.packageName, source.cacheVersion ?? '1', source.kind === 'npm' ? this.catalogVerification : null]);
     const row = { source, primary, key, value: null, error: null, loaded: false, controller: null };
     row.file = join(this.cacheDir, 'sources', createHash('sha256').update(key).digest('hex') + '.json');
     this.entries.set(source.id, row); this.onChange();
@@ -48,7 +50,7 @@ export class CatalogProviders {
     let timer;
     try {
       const load = async () => {
-        if (row.source.kind === 'npm') return loadCatalogSource(row.source, this.registry, this.fetcher);
+        if (row.source.kind === 'npm') return loadCatalogSource(row.source, this.registry, this.fetcher, this.catalogVerification);
         const data = await row.source.getCatalog({ signal: controller.signal });
         if (Buffer.byteLength(JSON.stringify(data)) > 32 * 1024 * 1024) throw new Error('响应超过大小限制');
         return { catalog: validateCatalog(data), source: row.source.id, version: row.source.cacheVersion ?? '1' };
@@ -76,7 +78,7 @@ export class CatalogProviders {
     }
     return {
       plugins: [...plugins.values()], conflicts,
-      sources: rows.map(({ source, primary, value, error }) => ({ primary, id: source.id, displayName: source.displayName, kind: source.kind, packageName: source.packageName, priority: source.priority, version: value?.version ?? null, updatedAt: value?.updatedAt ?? null, count: value?.catalog.plugins.length ?? 0, error, stale: Boolean(error && value) })),
+      sources: rows.map(({ source, primary, value, error }) => ({ primary, id: source.id, displayName: source.displayName, kind: source.kind, packageName: source.packageName, priority: source.priority, version: value?.version ?? null, verification: value?.verification ?? null, updatedAt: value?.updatedAt ?? null, count: value?.catalog.plugins.length ?? 0, error, stale: Boolean(error && value) })),
     };
   }
   close() { for (const row of this.entries.values()) row.controller?.abort(); this.entries.clear(); }

@@ -1,5 +1,9 @@
 export const MARKET_PACKAGE = '@zaimokuza/dsh-plugin-hub';
 export const CATALOG_PACKAGE = '@zaimokuza/dsh-plugin-hub-catalog-demo';
+export function catalogVerification(value = 'if-present') {
+  if (!['if-present', 'required', 'none'].includes(value)) throw new Error('catalogVerification must be if-present, required or none');
+  return value;
+}
 export const DEFAULT_BRAND = Object.freeze({ title: 'Plugin Hub', subTitle: 'DSH EXTENSIONS', primaryColor: '#596579', navTitle: 'Plugin Hub' });
 export function marketIdentity(id = 'hub') {
   if (typeof id !== 'string' || !/^[a-z][a-z0-9-]{0,47}$/.test(id)) throw new Error('marketId must be a lowercase identifier (max 48 characters)');

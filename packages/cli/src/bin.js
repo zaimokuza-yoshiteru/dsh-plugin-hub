@@ -9,13 +9,14 @@ const help = `create-dsh-plugin-hub <create-market|create-source> <directory> [o
   --primary-color <color>    #RRGGBB or red/blue/green/purple/orange
   --datasource <npm:package|file:path>  Catalog source (required)
   --registry <https-url>     Registry for catalog metadata and installs
+  --catalog-verification <if-present|required|none>  Catalog checksum policy (market only; default: if-present)
   --publish-registry <url>   Optional package publishConfig.registry
   --source-id <id>           Unique source ID (create-source)
   --help                    Show help
 Generation is offline. Run npm install, npm run build, npm pack in the output directory.
 No source repositories are downloaded. No package is installed or published by this command.`;
 try {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: Object.fromEntries(['name','market-id','title','sub-title','primary-color','datasource','registry','publish-registry','source-id'].map(key => [key, { type: 'string' }]).concat([['help', { type: 'boolean' }]])) });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: Object.fromEntries(['name','market-id','title','sub-title','primary-color','datasource','registry','publish-registry','source-id','catalog-verification'].map(key => [key, { type: 'string' }]).concat([['help', { type: 'boolean' }]])) });
   if (values.help) console.log(help);
   else { if (positionals.length !== 2) throw new Error(help); console.log(await generate(positionals[0], positionals[1], values)); }
 } catch (error) { console.error(error.message); process.exitCode = 1; }

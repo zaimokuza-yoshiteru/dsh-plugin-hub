@@ -36,7 +36,17 @@ CLI 也支持 `--datasource file:./plugins.json`，将 JSON 编译进生成项�
 
 ### 目录 JSON
 
-数据包只需包含 `package.json` 和根目录 `plugins.json`；将后者列入 npm `files`。版本更新后独立发布，市场刷新会读取 `latest` 并校验 tarball integrity。
+数据包只需包含 `package.json` 和根目录 `plugins.json`；将后者列入 npm `files`。版本更新后独立发布，市场刷新会读取 `latest`。压缩包摘要用于发现下载损坏或元数据与文件不一致，不证明目录内容可信。摘要来自仓库的 `dist.integrity`，缺失时兼容 `dist.shasum`（SHA-1），无需写入目录 JSON。
+
+从 0.1.1 起，市场的 `catalogVerification` 可配置为：
+
+| 值 | 行为 |
+| --- | --- |
+| `if-present`（默认） | 有摘要就校验；没有摘要也允许读取。摘要格式错误或不匹配时报错。 |
+| `required` | 要求有效摘要且校验通过。 |
+| `none` | 跳过摘要校验，适用于由企业自己的流程检查制品的环境。 |
+
+生成市场时可传 `--catalog-verification none`。已有生成项目可修改 `hub.config.json` 的 `catalogVerification` 后重新构建；也可在 DSH 的市场插件配置中设置该字段，重启生效。所有 npm 子来源继承目标市场的策略。切换策略不会复用其他策略下的目录缓存。三种模式都保留压缩包大小、JSON 格式及目录字段校验，并只读取 JSON，不执行数据包代码。
 
 ```json
 {
@@ -45,8 +55,6 @@ CLI 也支持 `--datasource file:./plugins.json`，将 JSON 编译进生成项�
     "packageName": "@company/dsh-search",
     "displayName": "知识搜索",
     "description": "查找团队文档。",
-    "owner": "Knowledge Team",
-    "origin": "internal",
     "tags": ["knowledge"],
     "documentationUrl": "https://docs.example/search",
     "troubleshootingUrl": "https://docs.example/search/help",
@@ -55,7 +63,7 @@ CLI 也支持 `--datasource file:./plugins.json`，将 JSON 编译进生成项�
 }
 ```
 
-必填字段如上；两个文档链接与 `locales` 可省略。`origin` 为 `internal` 或 `community`。tag 是展示标签，可用 `agent`、`developer-tools`、`knowledge`、`productivity`、`integration`、`ui`，也支持自定义小写标识；卡片 tag 不会修改筛选条件。目录顺序即展示顺序，不展示 Star。每个目录包内包名必须唯一。
+插件记录只要求 `packageName`、`displayName`、`description` 和 `tags`。`owner`、`origin`、两个文档链接与 `locales` 均可省略；省略 `owner` 时详情不显示维护团队。填写时，`owner` 是最多 80 字符的非空文本，`origin` 为 `internal` 或 `community`，不参与权限控制。tag 是展示标签，可用 `agent`、`developer-tools`、`knowledge`、`productivity`、`integration`、`ui`，也支持自定义小写标识；卡片 tag 不会修改筛选条件。目录顺序即展示顺序，不展示 Star。每个目录包内包名必须唯一。
 
 可选 `repositoryUrl` 为 HTTPS。提供 GitHub 仓库地址时，市场核对 npm 的 repository，避免安装同名的其它项目。介绍与排查链接直接在新窗口打开，网页自身处理登录。
 
@@ -108,7 +116,19 @@ A source uses the target market's `market-id` and a unique `source-id`. It is an
 
 ### Catalog contract
 
-A data package needs `package.json` and root `plugins.json`, included in npm `files`. Publish data updates independently; refresh reads `latest` and verifies tarball integrity. The JSON example above shows required fields; documentation/troubleshooting URLs and `locales` are optional. `origin` is `internal` or `community`. Tags support the six built-in IDs above and custom lowercase IDs; card tags do not change filters. Catalog order is display order; Star counts are not displayed. Package names must be unique within each catalog.
+A data package needs `package.json` and root `plugins.json`, included in npm `files`. Publish data updates independently; refresh reads `latest`. Checksums detect damaged downloads or mismatched metadata and files; they do not establish trust in catalog contents. They come from registry-provided `dist.integrity`, falling back to `dist.shasum` (SHA-1), not your catalog JSON.
+
+Since 0.1.1, `catalogVerification` is configurable:
+
+| Value | Behavior |
+| --- | --- |
+| `if-present` (default) | Verify available checksums; allow reads when both are absent. Malformed or mismatched checksums fail. |
+| `required` | Require a valid checksum and successful verification. |
+| `none` | Skip checksum verification for environments that verify artifacts through their own process. |
+
+Pass `--catalog-verification none` when generating a market. Existing generated projects can edit `catalogVerification` in `hub.config.json` and rebuild; alternatively set it in the DSH market plugin configuration and restart. All npm contributors inherit their target market's policy. Caches are isolated by policy. All modes retain archive size, JSON and catalog schema checks, reading JSON without executing package code.
+
+Plugin entries require only `packageName`, `displayName`, `description` and `tags`. `owner`, `origin`, documentation/troubleshooting URLs and `locales` are optional. Omitting `owner` hides the maintainer row in details. When supplied, `owner` is nonempty text of at most 80 characters; `origin` is `internal` or `community` and does not control access. Tags support the six built-in IDs above and custom lowercase IDs; card tags do not change filters. Catalog order is display order; Star counts are not displayed. Package names must be unique within each catalog.
 
 Optional `repositoryUrl` must be HTTPS. A GitHub repository URL enables npm repository identity checks to avoid unrelated name collisions. Links open in a new window; the destination website handles authentication.
 

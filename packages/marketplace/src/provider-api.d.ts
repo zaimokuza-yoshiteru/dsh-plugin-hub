@@ -3,8 +3,8 @@ export interface CatalogPlugin {
   packageName: string;
   displayName: string;
   description: string;
-  owner: string;
-  origin: 'internal' | 'community';
+  owner?: string;
+  origin?: 'internal' | 'community';
   tags: string[];
   documentationUrl?: string;
   troubleshootingUrl?: string;

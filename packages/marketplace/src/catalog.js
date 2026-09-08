@@ -16,10 +16,11 @@ export function validateCatalog(value) {
     if (typeof item.packageName !== 'string' || !PACKAGE_NAME.test(item.packageName) || item.packageName.length > 214) fail('npm 包名无效');
     if (seen.has(item.packageName)) fail('npm 包名重复');
     seen.add(item.packageName);
-    for (const [key, limit] of [['displayName', 80], ['description', 300], ['owner', 80]]) {
+    for (const [key, limit] of [['displayName', 80], ['description', 300]]) {
       if (typeof item[key] !== 'string' || !item[key].trim() || item[key].length > limit) fail(`${key} 无效`);
     }
-    if (!['internal', 'community'].includes(item.origin)) fail('origin 无效');
+    if (item.owner !== undefined && (typeof item.owner !== 'string' || !item.owner.trim() || item.owner.length > 80)) fail('owner 无效');
+    if (item.origin !== undefined && !['internal', 'community'].includes(item.origin)) fail('origin 无效');
     if (!Array.isArray(item.tags) || item.tags.length < 1 || item.tags.length > 5 || new Set(item.tags).size !== item.tags.length || item.tags.some(tag => typeof tag !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(tag))) fail('tags 无效');
     for (const key of ['documentationUrl', 'troubleshootingUrl', 'repositoryUrl']) {
       if (item[key] === undefined) continue;

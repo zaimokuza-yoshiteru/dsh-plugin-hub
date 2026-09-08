@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { Parser } from 'tar';
 import { validateCatalog } from './catalog.js';
+import { catalogVerification } from './identity.js';
 
 const LIMIT = 5 * 1024 * 1024;
 const CATALOG_LIMIT = 32 * 1024 * 1024;
@@ -23,14 +24,28 @@ export async function fetchJson(fetcher, url) {
   catch { throw new Error('返回内容不是有效 JSON，已保留上一份可用数据'); }
 }
 
-export function checkIntegrity(bytes, integrity) {
-  if (typeof integrity !== 'string') throw new Error('目录 npm 包没有 integrity，无法校验');
-  const options = integrity.split(/\s+/).map(token => token.match(/^(sha512|sha384|sha256)-([A-Za-z0-9+/=]+)$/)).filter(Boolean);
-  if (!options.some(([, algorithm, digest]) => {
+export function checkIntegrity(bytes, integrity, shasum, policy = 'if-present') {
+  catalogVerification(policy);
+  if (policy === 'none') return 'disabled';
+  const missing = value => value == null || (typeof value === 'string' && !value.trim());
+  // Older npm-compatible registries may expose only the tarball's SHA-1 sum.
+  if (missing(integrity)) {
+    if (missing(shasum) && policy === 'if-present') return 'unavailable';
+    if (typeof shasum !== 'string' || !/^[a-f\d]{40}$/i.test(shasum)) throw new Error('目录 npm 包缺少有效的 integrity 或 shasum，无法校验');
+    const actual = createHash('sha1').update(bytes).digest();
+    if (!timingSafeEqual(actual, Buffer.from(shasum, 'hex'))) throw new Error('目录 npm 包完整性校验失败');
+    return 'shasum';
+  }
+  if (typeof integrity !== 'string') throw new Error('目录 npm 包完整性校验失败');
+  const options = integrity.trim().split(/\s+/).map(token => token.match(/^(sha512|sha384|sha256|sha1)-([A-Za-z0-9+/=]+)$/)).filter(Boolean);
+  const strongest = ['sha512', 'sha384', 'sha256', 'sha1'].find(algorithm => options.some(option => option[1] === algorithm));
+  // A present integrity field must verify; never fall back after a mismatch.
+  if (!options.filter(option => option[1] === strongest).some(([, algorithm, digest]) => {
     const expected = Buffer.from(digest, 'base64');
     const actual = createHash(algorithm).update(bytes).digest();
     return actual.length === expected.length && timingSafeEqual(actual, expected);
   })) throw new Error('目录 npm 包完整性校验失败');
+  return 'integrity';
 }
 
 /** Read only the data entry from the archive; never extract paths or execute scripts. */
@@ -53,7 +68,8 @@ export function readCatalogTarball(bytes) {
   });
 }
 
-export async function loadCatalogSource(source, registry, fetcher) {
+export async function loadCatalogSource(source, registry, fetcher, policy = 'if-present') {
+  catalogVerification(policy);
   if (source.kind !== 'npm') throw new Error('目录来源必须是 npm 数据包');
   const { value: metadata } = await fetchJson(fetcher, registry + encodeURIComponent(source.packageName));
   const version = metadata['dist-tags']?.latest;
@@ -64,6 +80,6 @@ export async function loadCatalogSource(source, registry, fetcher) {
   if (url.origin !== new URL(registry).origin || url.username || url.password) throw new Error('目录 tarball 地址不属于配置的仓库');
   const response = await fetcher(url, { signal: AbortSignal.timeout(15000), redirect: 'error' });
   const bytes = await boundedBytes(response, CATALOG_LIMIT);
-  checkIntegrity(bytes, dist.integrity);
-  return { catalog: await readCatalogTarball(bytes), version, source: source.packageName };
+  const method = checkIntegrity(bytes, dist.integrity, dist.shasum, policy);
+  return { catalog: await readCatalogTarball(bytes), version, source: source.packageName, verification: { policy, method } };
 }
