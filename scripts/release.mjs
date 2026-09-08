@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -31,8 +31,12 @@ export async function releasePlan(entries, selection, { readTarball, getManifest
   return plan;
 }
 
-async function getManifest(name, version) {
-  const response = await fetch(`${registry}${encodeURIComponent(name)}/${encodeURIComponent(version)}`, { signal: AbortSignal.timeout(20000) });
+export async function getManifest(name, version, fetcher = fetch) {
+  // Preflight 404s can be cached beyond a successful publish. Each verification
+  // must query fresh metadata instead of replaying that cached negative result.
+  const url = new URL(`${registry}${encodeURIComponent(name)}/${encodeURIComponent(version)}`);
+  url.searchParams.set('verify', randomUUID());
+  const response = await fetcher(url, { signal: AbortSignal.timeout(20000), headers: { 'cache-control': 'no-cache' } });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Registry check failed for ${name}: HTTP ${response.status}`);
   return response.json();

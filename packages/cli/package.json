@@ -1,6 +1,6 @@
 {
   "name": "@zaimokuza/create-dsh-plugin-hub",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Offline templates and build tools for enterprise DSH marketplaces and catalog providers",
   "type": "module",
   "bin": {
@@ -24,7 +24,7 @@
     "node": ">=22.19.0"
   },
   "dependencies": {
-    "@zaimokuza/dsh-plugin-hub": "0.1.1",
+    "@zaimokuza/dsh-plugin-hub": "0.1.2",
     "esbuild": "0.28.1"
   },
   "publishConfig": {

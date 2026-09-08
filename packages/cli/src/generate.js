@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile, access, rename, rm } from 'node:fs/promises
 import { resolve, dirname, join, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PACKAGE_NAME, validateCatalog } from '@zaimokuza/dsh-plugin-hub/catalog';
-import { MARKET_PACKAGE, marketIdentity, normalizeBrand, catalogVerification } from '@zaimokuza/dsh-plugin-hub/identity';
+import { MARKET_PACKAGE, marketIdentity, normalizeBrand, catalogVerification, normalizeRegistry } from '@zaimokuza/dsh-plugin-hub/identity';
 const own = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
 const runtime = JSON.parse(await readFile(new URL('../../marketplace/package.json', import.meta.url)).catch(async () => {
   const { createRequire } = await import('node:module'); return readFile(createRequire(import.meta.url).resolve(MARKET_PACKAGE + '/package.json'));
@@ -19,14 +19,12 @@ export async function generate(kind, directory, options) {
   if (value.startsWith('npm:') && PACKAGE_NAME.test(value.slice(4))) source = { kind: 'npm', packageName: value.slice(4) };
   else if (value.startsWith('file:')) { catalog = validateCatalog(JSON.parse(await readFile(resolve(value.slice(5)), 'utf8'))); source = { kind: 'json' }; }
   else throw new Error('--datasource must be npm:<package> or file:<JSON path>');
-  const https = value => { const url = new URL(value); if(url.protocol !== 'https:' || url.username || url.password) throw new Error('Registry must be HTTPS without credentials'); return url.href.replace(/\/?$/, '/'); };
-  if (kind === 'create-market' && !options.registry) throw new Error('--registry is required for an enterprise market');
   if (kind === 'create-source' && options['catalog-verification'] !== undefined) throw new Error('--catalog-verification belongs to the target market');
   const brand = normalizeBrand({ title: options.title ?? 'Enterprise', subTitle: options['sub-title'] ?? 'PLUGIN HUB', navTitle: options.title ?? 'Enterprise Market', primaryColor: options['primary-color'] ?? 'red' });
   const sourceId = options['source-id'] ?? 'team-' + identity.id;
   if (!/^[a-z0-9][a-z0-9._-]{0,79}$/.test(sourceId)) throw new Error('Invalid --source-id');
-  const config = { kind: kind === 'create-market' ? 'market' : 'source', packageName: options.name, marketId: identity.id, ...(kind === 'create-market' ? { brand, registry: https(options.registry), catalogVerification: catalogVerification(options['catalog-verification']) } : { sourceId, title: options.title ?? 'Team catalog' }), source };
-  const manifest = { name: options.name, version: '0.1.0', type: 'module', main: './lib/index.js', files: ['lib','cordis.patch.yml','README.md'], exports: { '.': './lib/index.js', './package.json': './package.json', ...(config.kind === 'market' ? { './client': './lib/client.js' } : {}) }, scripts: { build: 'node scripts/build.mjs', prepack: 'npm run build' }, engines: runtime.engines, dshPluginHub: runtime.dshPluginHub, dependencies: { [MARKET_PACKAGE]: runtime.version }, devDependencies: { [own.name]: own.version }, dsh: { bundle: { patch: './cordis.patch.yml' }, ...(config.kind === 'market' ? { client: runtime.dsh.client } : {}) }, ...(options['publish-registry'] ? { publishConfig: { registry: https(options['publish-registry']) } } : {}) };
+  const config = { kind: kind === 'create-market' ? 'market' : 'source', packageName: options.name, marketId: identity.id, ...(kind === 'create-market' ? { brand, ...(options.registry !== undefined ? { registry: normalizeRegistry(options.registry) } : {}), catalogVerification: catalogVerification(options['catalog-verification']) } : { sourceId, title: options.title ?? 'Team catalog' }), source };
+  const manifest = { name: options.name, version: '0.1.0', type: 'module', main: './lib/index.js', files: ['lib','cordis.patch.yml','README.md'], exports: { '.': './lib/index.js', './package.json': './package.json', ...(config.kind === 'market' ? { './client': './lib/client.js' } : {}) }, scripts: { build: 'node scripts/build.mjs', prepack: 'npm run build' }, engines: runtime.engines, dshPluginHub: runtime.dshPluginHub, dependencies: { [MARKET_PACKAGE]: runtime.version }, devDependencies: { [own.name]: own.version }, dsh: { bundle: { patch: './cordis.patch.yml' }, ...(config.kind === 'market' ? { client: runtime.dsh.client } : {}) }, ...(options['publish-registry'] ? { publishConfig: { registry: normalizeRegistry(options['publish-registry']) } } : {}) };
   const temp = join(dirname(target), '.' + basename(target) + '-' + randomUUID());
   await mkdir(temp, { recursive: true });
   try {

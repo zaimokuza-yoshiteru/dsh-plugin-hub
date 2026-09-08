@@ -1,5 +1,11 @@
 export const MARKET_PACKAGE = '@zaimokuza/dsh-plugin-hub';
 export const CATALOG_PACKAGE = '@zaimokuza/dsh-plugin-hub-catalog-demo';
+export function normalizeRegistry(value) {
+  let url;
+  try { if (typeof value !== 'string') throw new Error(); url = new URL(value); } catch { throw new Error('npm registry must be an HTTPS URL without credentials / npm registry 必须是无凭据的 HTTPS 地址'); }
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('npm registry must be an HTTPS URL without credentials / npm registry 必须是无凭据的 HTTPS 地址');
+  return url.href.replace(/\/?$/, '/');
+}
 export function catalogVerification(value = 'if-present') {
   if (!['if-present', 'required', 'none'].includes(value)) throw new Error('catalogVerification must be if-present, required or none');
   return value;

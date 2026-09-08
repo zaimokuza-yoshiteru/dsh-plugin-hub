@@ -29,13 +29,14 @@ CLI 随 npm 包提供模板，**无需访问 GitHub 源码**，适合只能通�
 ```sh
 npx @zaimokuza/create-dsh-plugin-hub create-market team-market \
   --name @company/dsh-market --market-id team --title 'Team Tools' \
-  --datasource npm:@company/dsh-catalog \
-  --registry https://nexus.example/repository/npm-group/
+  --datasource npm:@company/dsh-catalog
 cd team-market
 npm install
 npm run build
 npm pack
 ```
+
+默认读取用户在 DSH profile 下生效的 pnpm/npm `registry`；需要固定地址时再传 `--registry`。发布地址也可省略，沿用企业 pipeline 配置。
 
 生成的是可配置的真实 DSH 插件项目。也可使用 `create-source` 生成部门或团队来源；已有插件可以直接调用数据扩展接口，不依赖生成器。完整示例见[使用与目录规范](docs/guide.md)。内网使用时需确保相应包已同步到配置的仓库。
 
@@ -107,6 +108,8 @@ The UI shows the effective delay and its source, and the same minutes are passed
 ### Build quickly with the CLI
 
 Templates ship in npm, so generating branded markets and source plugins **does not require GitHub access**. Use the CLI/build commands above; internal registries must have the corresponding packages available. `create-market` creates a real configurable DSH plugin; `create-source` creates a department/team source. Existing plugins may contribute lists directly without the generator. See the bilingual [guide](docs/guide.md).
+
+By default, the market reads the pnpm/npm `registry` effective in the DSH profile at runtime. Pass `--registry` only to pin an address. The publish registry is also optional and can remain controlled by your enterprise pipeline.
 
 ### Interface and demo packages
 

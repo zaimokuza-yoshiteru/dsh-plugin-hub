@@ -1,6 +1,6 @@
 {
   "name": "@zaimokuza/dsh-plugin-hub-source-demo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Demo source plugin: adds the Zaimokuza tab to Plugin Hub",
   "license": "MIT",
   "author": {
@@ -34,8 +34,8 @@
     "node": "^22.19.0 || >=24.0.0"
   },
   "dependencies": {
-    "@zaimokuza/dsh-plugin-hub": "0.1.1",
-    "@zaimokuza/dsh-plugin-hub-source-catalog-demo": "0.1.0"
+    "@zaimokuza/dsh-plugin-hub": "0.1.2",
+    "@zaimokuza/dsh-plugin-hub-source-catalog-demo": "0.1.2"
   },
   "dsh": {
     "bundle": {

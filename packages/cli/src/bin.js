@@ -8,7 +8,7 @@ const help = `create-dsh-plugin-hub <create-market|create-source> <directory> [o
   --sub-title <text>         Market subtitle
   --primary-color <color>    #RRGGBB or red/blue/green/purple/orange
   --datasource <npm:package|file:path>  Catalog source (required)
-  --registry <https-url>     Registry for catalog metadata and installs
+  --registry <https-url>     Optional registry override; defaults to runtime pnpm/npm config
   --catalog-verification <if-present|required|none>  Catalog checksum policy (market only; default: if-present)
   --publish-registry <url>   Optional package publishConfig.registry
   --source-id <id>           Unique source ID (create-source)

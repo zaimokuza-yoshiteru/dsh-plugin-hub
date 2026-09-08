@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
-import { MARKET_PACKAGE, marketIdentity, normalizeBrand, catalogVerification } from '@zaimokuza/dsh-plugin-hub/identity';
+import { MARKET_PACKAGE, marketIdentity, normalizeBrand, catalogVerification, normalizeRegistry } from '@zaimokuza/dsh-plugin-hub/identity';
 import { validateCatalog, PACKAGE_NAME } from '@zaimokuza/dsh-plugin-hub/catalog';
 const require = createRequire(import.meta.url);
 export async function buildProject(root) {
@@ -21,8 +21,8 @@ export async function buildProject(root) {
   let code;
   if(config.kind === 'market') {
     const brand = normalizeBrand(config.brand);
-    const registry = new URL(config.registry); if(registry.protocol !== 'https:' || registry.username || registry.password) throw new Error('Invalid registry');
-    const defaults = { packageName:manifest.name, marketId:identity.id, brand, registry:registry.href, catalogVerification:catalogVerification(config.catalogVerification), ...(source.kind === 'npm' ? { catalogPackage:source.packageName } : { catalogSources:[] }), demo:false };
+    const registry = config.registry === undefined ? undefined : normalizeRegistry(config.registry);
+    const defaults = { packageName:manifest.name, marketId:identity.id, brand, ...(registry === undefined ? {} : {registry}), catalogVerification:catalogVerification(config.catalogVerification), ...(source.kind === 'npm' ? { catalogPackage:source.packageName } : { catalogSources:[] }), demo:false };
     code = `import { createMarketplace } from '${MARKET_PACKAGE}/runtime';\n${source.kind === 'json' ? "import { readFile } from 'node:fs/promises';\n"+dataEntry : ''}const plugin = createMarketplace({ ...${JSON.stringify(defaults)}${source.kind === 'json' ? ', initialCatalog: catalog' : ''} });\nexport const name = plugin.name;\nexport const inject = plugin.inject;\nexport const apply = plugin.apply;\n`;
     await build({ entryPoints:[require.resolve(MARKET_PACKAGE+'/client-entry')],outfile:join(root,'lib/client.js'),bundle:true,format:'cjs',platform:'browser',target:'es2022',external:['react','react/jsx-runtime','@deepseek-ai/dsh-client-ui-primitives'],loader:{'.css':'text'},define:{'process.env.NODE_ENV':'"production"',__HUB_PACKAGE__:JSON.stringify(manifest.name),__HUB_ID__:JSON.stringify(identity.id),__HUB_BRAND__:JSON.stringify(brand)},banner:{js:`window.__ModuleLoader__.load({ id: ${JSON.stringify(manifest.name)}, factory: (require) => { var module = { exports: {} }; var exports = module.exports;`},footer:{js:'return module.exports; } });'} });
   } else {

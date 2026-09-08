@@ -40,3 +40,18 @@ test('catalog verification flows from CLI options and edited config into built m
 test('bad inputs fail before creating a project',async()=>{
  const root=await mkdtemp(join(tmpdir(),'hub-invalid-'));try{for(const change of [{name:'bad name'},{'market-id':'../x'},{registry:'http://example.com'},{'primary-color':'url(https://example.com)'},{datasource:'https://github.com/x'},{'catalog-verification':'typo'}])await assert.rejects(generate('create-market',join(root,'bad'),{...options,...change}));}finally{await rm(root,{recursive:true,force:true});}
 });
+test('omitted registries stay absent after generation and rebuild; publication uses caller config', async t => {
+ const root=await mkdtemp(join(tmpdir(),'hub-inherit-registry-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ for(const kind of ['market','source']) {
+  const dir=join(root,kind);const input={...options};delete input.registry;delete input['publish-registry'];
+  await generate('create-'+kind,dir,input);await buildProject(dir);
+  const config=JSON.parse(await readFile(join(dir,'hub.config.json'),'utf8'));
+  const manifest=JSON.parse(await readFile(join(dir,'package.json'),'utf8'));
+  assert.equal(Object.hasOwn(config,'registry'),false);assert.equal(Object.hasOwn(manifest,'publishConfig'),false);
+  assert.doesNotMatch(await readFile(join(dir,'lib/index.js'),'utf8'),/"registry"|nexus\.example|registry\.npmjs\.org/);
+  if(kind==='market') {
+   config.registry='https://override.example/npm/';await writeFile(join(dir,'hub.config.json'),JSON.stringify(config));await buildProject(dir);
+   assert.match(await readFile(join(dir,'lib/index.js'),'utf8'),/"registry":"https:\/\/override\.example\/npm\/"/);
+  }
+ }
+});

@@ -39,11 +39,13 @@ npm(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
 const cli = join(temp, 'node_modules/@zaimokuza/create-dsh-plugin-hub/lib/bin.js');
 for (const kind of ['market', 'source']) {
   const directory = join(temp, kind);
-  const args = [cli, 'create-' + kind, directory, '--name', '@company/' + kind, '--market-id', 'enterprise', '--title', 'Team', '--datasource', 'npm:@company/catalog', ...(kind === 'market' ? ['--registry', 'https://nexus.example/repository/npm-group/'] : ['--source-id', 'team'])];
+  const args = [cli, 'create-' + kind, directory, '--name', '@company/' + kind, '--market-id', 'enterprise', '--title', 'Team', '--datasource', 'npm:@company/catalog', ...(kind === 'market' ? [] : ['--source-id', 'team'])];
   const generated = spawnSync(process.execPath, args, { cwd: temp, encoding: 'utf8' });
   assert.equal(generated.status, 0, generated.stderr);
   const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
   assert.equal(manifest.engines.dsh, undefined);
+  assert.equal(manifest.publishConfig, undefined);
+  assert.equal(JSON.parse(await readFile(join(directory, 'hub.config.json'), 'utf8')).registry, undefined);
   assert.equal(manifest.dshPluginHub.hostCompatibility, 'capability-based');
   assert.deepEqual(manifest.dshPluginHub.testedDshVersions, ['0.1.2-rc.1']);
   npm(['run', 'build'], directory);

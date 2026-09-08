@@ -10,8 +10,7 @@
 npx @zaimokuza/create-dsh-plugin-hub create-market team-market \
   --name @company/dsh-market --market-id team \
   --title 'Team Tools' --sub-title 'PLUGIN HUB' --primary-color blue \
-  --datasource npm:@company/dsh-catalog \
-  --registry https://nexus.example/repository/npm-group/
+  --datasource npm:@company/dsh-catalog
 cd team-market
 npm install
 npm run build
@@ -19,6 +18,10 @@ npm pack
 ```
 
 `npm run build` 生成插件入口，`npm pack` 生成包含入口与清单的 tgz。构建依赖（包括 esbuild 的平台包）需要能从配置的 npm 仓库获取。
+
+`--registry` 可省略。未指定时，运行时以 DSH 安装 profile 为工作目录读取 `pnpm config get registry`，读取不到再尝试 npm，均无结果时使用 npm 默认地址。环境变量、用户配置及 profile 配置的优先级由包管理器处理；这里只读取统一的 `registry` 值，不解析 `@scope:registry` 路由。地址不会在生成或构建时从开发机写入插件。目录与插件查询、安装使用同一地址；更改本地配置后重启 DSH 生效。已有项目需删除 `hub.config.json` 中的 `registry` 并重新构建，才能改为自动读取；显式设置仍优先。
+
+`--publish-registry` 同样可省略：不生成 `publishConfig.registry`，发布交给 npm/pnpm 及 pipeline 配置。查询与发布仓库可能不同（如 Nexus group 与 hosted），二者不会互相推导。
 
 `hub.config.json` 控制品牌与数据源；修改后重新构建。企业生成项目只读取指定目录，不启用公共演示目录。公共演示目录作为运行时依赖可能被下载。npm 凭据由环境/npm 配置提供，不写进配置 JSON。
 
@@ -38,7 +41,7 @@ CLI 也支持 `--datasource file:./plugins.json`，将 JSON 编译进生成项�
 
 数据包只需包含 `package.json` 和根目录 `plugins.json`；将后者列入 npm `files`。版本更新后独立发布，市场刷新会读取 `latest`。压缩包摘要用于发现下载损坏或元数据与文件不一致，不证明目录内容可信。摘要来自仓库的 `dist.integrity`，缺失时兼容 `dist.shasum`（SHA-1），无需写入目录 JSON。
 
-从 0.1.1 起，市场的 `catalogVerification` 可配置为：
+市场的 `catalogVerification` 可配置为：
 
 | 值 | 行为 |
 | --- | --- |
@@ -110,6 +113,10 @@ Use the CLI examples above once the packages are available in your registry. Tem
 
 Edit `hub.config.json` and rebuild to change branding or the catalog. Generated enterprise markets read only the configured catalog; the public demo catalog may still be downloaded as a runtime dependency but is not enabled. Keep npm authentication in environment/npm configuration, outside JSON.
 
+`--registry` is optional. At runtime, the market reads `pnpm config get registry` in the DSH installation profile, falls back to npm when unavailable, then to the npm default if neither returns a value. The package manager resolves environment, user and profile configuration precedence. This reads the shared `registry` value; it does not route by `@scope:registry`. Generation and builds do not embed the developer’s local address. Catalog queries, plugin queries and installs share the resolved address. Restart DSH after changing local config. To switch an existing generated project to automatic resolution, remove `registry` from `hub.config.json` and rebuild; explicit values still take priority.
+
+`--publish-registry` is also optional. When omitted, no `publishConfig.registry` is generated; npm/pnpm and the pipeline control publication. Read and publish registries are independent, for example Nexus group versus hosted endpoints.
+
 A source uses the target market's `market-id` and a unique `source-id`. It is an ordinary DSH plugin and can itself appear in the main catalog. Install and restart to add its tab; uninstall and restart to remove it. Source entries override same-name main entries; competing sources use descending priority then ascending source ID.
 
 `--datasource file:./plugins.json` embeds local JSON instead. In npm mode, `--name` identifies the plugin while `--datasource npm:...` identifies its separate data package.
@@ -118,7 +125,7 @@ A source uses the target market's `market-id` and a unique `source-id`. It is an
 
 A data package needs `package.json` and root `plugins.json`, included in npm `files`. Publish data updates independently; refresh reads `latest`. Checksums detect damaged downloads or mismatched metadata and files; they do not establish trust in catalog contents. They come from registry-provided `dist.integrity`, falling back to `dist.shasum` (SHA-1), not your catalog JSON.
 
-Since 0.1.1, `catalogVerification` is configurable:
+`catalogVerification` is configurable:
 
 | Value | Behavior |
 | --- | --- |
