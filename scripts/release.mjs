@@ -3,32 +3,18 @@ import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { packageFolders } from './packages.mjs';
 
 const registry = 'https://registry.npmjs.org/';
 const integrity = bytes => 'sha512-' + createHash('sha512').update(bytes).digest('base64');
 
-export async function releasePlan(entries, selection, { readTarball, getManifest }) {
-  if (selection !== 'all' && !packageFolders.includes(selection)) throw new Error('Unknown release package');
-  const selected = entries.filter(entry => selection === 'all' || entry.folder === selection);
-  if (!selected.length) throw new Error('No release packages');
-  const plan = [];
-  // Validate the complete selection before the first registry write.
-  for (const entry of selected) {
-    if (!packageFolders.includes(entry.folder) || !/^[\w.-]+\.tgz$/.test(entry.filename)) throw new Error('Invalid release manifest');
-    if (integrity(await readTarball(entry.filename)) !== entry.integrity) throw new Error(`Tarball integrity mismatch: ${entry.name}`);
-    const existing = await getManifest(entry.name, entry.version);
-    if (existing && existing.dist?.integrity !== entry.integrity) throw new Error(`${entry.name}@${entry.version} already exists with different contents; bump its version.`);
-    plan.push({ ...entry, published: Boolean(existing) });
-  }
-  const available = new Set();
-  for (const entry of plan) {
-    for (const [name, version] of Object.entries(entry.dependencies ?? {}).filter(([name]) => name.startsWith('@zaimokuza/'))) {
-      if (!available.has(`${name}@${version}`) && !(await getManifest(name, version))) throw new Error(`Publish dependency first: ${name}@${version}`);
-    }
-    available.add(`${entry.name}@${entry.version}`);
-  }
-  return plan;
+export async function releasePlan(entries, { readTarball, getManifest }) {
+  if (!Array.isArray(entries) || entries.length !== 1) throw new Error('Expected one Hub release artifact');
+  const [entry] = entries;
+  if (entry.name !== '@zaimokuza/dsh-plugin-hub' || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(entry.version) || !/^[\w.-]+\.tgz$/.test(entry.filename)) throw new Error('Invalid release manifest');
+  if (integrity(await readTarball(entry.filename)) !== entry.integrity) throw new Error(`Tarball integrity mismatch: ${entry.name}`);
+  const existing = await getManifest(entry.name, entry.version);
+  if (existing && existing.dist?.integrity !== entry.integrity) throw new Error(`${entry.name}@${entry.version} already exists with different contents; bump its version.`);
+  return [{ ...entry, published: Boolean(existing) }];
 }
 
 export async function getManifest(name, version, fetcher = fetch) {
@@ -61,7 +47,7 @@ async function main() {
   }
   const dir = resolve('.local/dist');
   const entries = JSON.parse(await readFile(resolve(dir, 'manifest.json'), 'utf8'));
-  const plan = await releasePlan(entries, process.env.RELEASE_PACKAGE ?? 'all', {
+  const plan = await releasePlan(entries, {
     readTarball: filename => readFile(resolve(dir, filename)), getManifest,
   });
   for (const entry of plan) console.log(`${entry.published ? 'Already published' : 'Publish'}: ${entry.name}@${entry.version}`);

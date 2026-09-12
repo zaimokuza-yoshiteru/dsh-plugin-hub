@@ -1,0 +1,16 @@
+export const mcpFields = [
+  ['serverName', '工具命名空间，1–32 位字母、数字、下划线或连字符。', '必填'],
+  ['transport', 'stdio 为本地进程；streamable-http 为 HTTP 服务。', '必填'],
+  ['command', 'stdio 可执行文件；Windows 可使用 node.exe 的完整路径。', 'stdio 必填'],
+  ['args', '传给可执行文件的字符串数组，不经过 shell。', '[]'],
+  ['env', '显式传给服务的环境变量，可用 !!js process.env.NAME 引用。', '{}'],
+  ['cwd', 'stdio 工作目录，留空使用宿主工作目录。', '""'],
+  ['url', 'Streamable HTTP 地址。', 'HTTP 必填'],
+  ['headers', 'HTTP 请求头，可引用环境变量。', '{}'],
+  ['toolCallTimeoutMs', '单次工具调用超时，单位毫秒。', '60000'],
+  ['failOnStartupError', '初始化失败时是否让插件加载失败。', 'false'],
+  ['reconnect.enabled', '连接丢失后自动重连。', 'true'],
+  ['reconnect.initialDelayMs', '首次重连等待毫秒数，之后指数递增。', '500'],
+  ['reconnect.maxDelayMs', '重连等待上限，单位毫秒。', '30000'],
+  ['reconnect.maxAttempts', '一次连接故障的连续重试次数上限。', '10'],
+];

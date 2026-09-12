@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 const root = process.cwd();
-const npmCache = process.env.npm_config_cache || (existsSync('.local/npm-cache/_cacache') ? join(root, '.local/npm-cache') : spawnSync('npm', ['config', 'get', 'cache'], { encoding: 'utf8' }).stdout.trim());
+const npmCache = process.env.npm_config_cache || (existsSync('.local/npm-cache/_cacache') ? join(root, '.local/npm-cache') : spawnSync('npm', ['config', 'get', 'cache'], { encoding: 'utf8', shell: process.platform === 'win32' }).stdout.trim());
 await mkdir('.local/verify', { recursive: true });
 const temp = await mkdtemp(resolve('.local/verify/run-'));
 const manifests = JSON.parse(await readFile('.local/dist/manifest.json', 'utf8'));
@@ -13,17 +13,11 @@ const fixture = { name: 'packed-check', private: true, type: 'module', dependenc
 await writeFile(join(temp, 'package.json'), JSON.stringify(fixture));
 // npm ci caches tarballs, but need not cache registry metadata. Reuse its exact
 // dependency graph so this offline consumer never needs a registry resolution.
-const workspaceLock = JSON.parse(await readFile('package-lock.json', 'utf8'));
-const packages = Object.fromEntries(Object.entries(workspaceLock.packages).filter(([path, value]) => path.startsWith('node_modules/') && !value.link));
+const projectLock = JSON.parse(await readFile('package-lock.json', 'utf8'));
+const packages = Object.fromEntries(Object.entries(projectLock.packages).filter(([path, value]) => path.startsWith('node_modules/') && !value.link));
 packages[''] = fixture;
 for (const entry of manifests) {
-  const manifest = JSON.parse(await readFile(`packages/${entry.folder}/package.json`, 'utf8'));
-  const prefix = `packages/${entry.folder}/`;
-  for (const [path, dependency] of Object.entries(workspaceLock.packages)) {
-    if (path.startsWith(prefix + 'node_modules/') && !dependency.link) {
-      packages[`node_modules/${entry.name}/${path.slice(prefix.length)}`] = dependency;
-    }
-  }
+  const manifest = JSON.parse(await readFile('package.json', 'utf8'));
   packages['node_modules/' + entry.name] = {
     version: entry.version, resolved: fixture.dependencies[entry.name], integrity: entry.integrity,
     ...Object.fromEntries(['dependencies', 'optionalDependencies', 'peerDependencies', 'peerDependenciesMeta', 'engines', 'bin', 'os', 'cpu'].filter(key => manifest[key]).map(key => [key, manifest[key]])),
@@ -36,35 +30,16 @@ function npm(args, cwd = temp) {
   return r.stdout;
 }
 npm(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
-const cli = join(temp, 'node_modules/@zaimokuza/create-dsh-plugin-hub/lib/bin.js');
-for (const kind of ['market', 'source']) {
-  const directory = join(temp, kind);
-  const args = [cli, 'create-' + kind, directory, '--name', '@company/' + kind, '--market-id', 'enterprise', '--title', 'Team', '--datasource', 'npm:@company/catalog', ...(kind === 'market' ? [] : ['--source-id', 'team'])];
-  const generated = spawnSync(process.execPath, args, { cwd: temp, encoding: 'utf8' });
-  assert.equal(generated.status, 0, generated.stderr);
-  const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
-  assert.equal(manifest.engines.dsh, undefined);
-  assert.equal(manifest.publishConfig, undefined);
-  assert.equal(JSON.parse(await readFile(join(directory, 'hub.config.json'), 'utf8')).registry, undefined);
-  assert.equal(manifest.dshPluginHub.hostCompatibility, 'capability-based');
-  assert.deepEqual(manifest.dshPluginHub.testedDshVersions, ['0.1.2-rc.1']);
-  npm(['run', 'build'], directory);
-  npm(['pack', '--json'], directory);
-  const entry = await import(pathToFileURL(join(directory, 'lib/index.js')));
-  assert.equal(entry.name, '@company/' + kind);
-  if (kind === 'source') {
-    let descriptor;
-    entry.apply({ dshPluginHub_enterprise: { apiVersion: 1, registerSource: source => { descriptor = source; return () => {}; } }, effect: fn => fn() });
-    assert.equal(descriptor.packageName, '@company/catalog');
-    assert.equal(descriptor.id, 'team');
-  }
-}
-const catalog = JSON.parse(await readFile(join(temp, 'node_modules/@zaimokuza/dsh-plugin-hub-catalog-demo/plugins.json'), 'utf8'));
-assert(catalog.plugins.some(p => p.packageName === '@zaimokuza/dsh-plugin-hub-source-demo'));
-const child = await import(pathToFileURL(join(temp, 'node_modules/@zaimokuza/dsh-plugin-hub-source-demo/src/index.js')));
-let descriptor;
-child.apply({ dshPluginHub_hub: { apiVersion: 1, registerSource: value => { descriptor = value; return () => {}; } }, effect: fn => fn() });
-assert.equal(child.name, '@zaimokuza/dsh-plugin-hub-source-demo');
-assert.equal(descriptor.packageName, '@zaimokuza/dsh-plugin-hub-source-catalog-demo');
-assert.equal(descriptor.id, 'zaimokuza');
-console.log('Verified all five tarballs offline; generated market/source builds; source package is discoverable and registers the correct separate catalog.');
+assert.equal(manifests.length, 1);
+assert.equal(manifests[0].name, '@zaimokuza/dsh-plugin-hub');
+const installed = join(temp, 'node_modules/@zaimokuza/dsh-plugin-hub');
+const runtime = await import(pathToFileURL(join(installed, 'src/index.js')));
+assert.equal(typeof runtime.apply, 'function');
+const manifest = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
+assert.deepEqual(Object.keys(manifest.dependencies).sort(), ['@modelcontextprotocol/sdk', 'yaml']);
+const client = await readFile(join(installed, 'lib/client.js'), 'utf8');
+assert(client.includes('SKILL.md'));
+assert(!client.includes('create-dsh-plugin-hub'));
+assert(!client.includes('sourceMappingURL='));
+assert(!manifests[0].files.some(file => file.startsWith('src/client/')));
+console.log('Verified the single Hub tarball offline, including runtime dependencies and browser bundle.');

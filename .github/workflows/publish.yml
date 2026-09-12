@@ -6,11 +6,6 @@ on:
         description: 'Publish to npm / 发布到 npm（关闭时仅验证）'
         type: boolean
         default: false
-      package:
-        description: 'Package selection / 发布范围'
-        type: choice
-        default: all
-        options: [all, catalog, source-catalog-demo, marketplace, source-demo, cli]
 permissions:
   contents: read
 concurrency:
@@ -31,8 +26,6 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: node scripts/release.mjs
-        env:
-          RELEASE_PACKAGE: ${{ inputs.package }}
       - uses: actions/upload-artifact@v4
         with:
           name: npm-release
@@ -61,5 +54,3 @@ jobs:
           name: npm-release
           path: .local/dist
       - run: node scripts/release.mjs --publish
-        env:
-          RELEASE_PACKAGE: ${{ inputs.package }}

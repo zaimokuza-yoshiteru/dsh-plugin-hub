@@ -1,19 +1,76 @@
 {
-  "name": "dsh-plugin-hub-workspace",
-  "private": true,
+  "name": "@zaimokuza/dsh-plugin-hub",
+  "version": "0.2.0",
+  "private": false,
+  "description": "Native DSH resource hub: Skills, MCP, third-party plugins and experiments",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "node --test scripts/*.test.mjs && npm test --workspaces --if-present",
-    "check": "npm test && npm run build && npm run pack:all && npm run verify:packed",
-    "pack:all": "node scripts/pack.mjs",
-    "verify:packed": "node scripts/verify-packed.mjs"
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
   },
-  "version": "0.1.0",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js scripts/*.test.mjs",
+    "check": "npm test && npm run build && npm run pack && npm run verify:packed",
+    "pack": "node scripts/pack.mjs",
+    "verify:packed": "node scripts/verify-packed.mjs",
+    "verify:native": "node scripts/verify-native.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "react": "18.3.1"
+  },
+  "files": [
+    "src/*.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "zaimokuza-yoshiteru"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub.git"
+  },
+  "homepage": "https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub",
+  "bugs": {
+    "url": "https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub/issues"
+  },
+  "dshPluginHub": {
+    "hostCompatibility": "capability-based",
+    "testedDshVersions": [
+      "0.1.5-rc.1",
+      "0.1.5-rc.2"
+    ]
   }
 }

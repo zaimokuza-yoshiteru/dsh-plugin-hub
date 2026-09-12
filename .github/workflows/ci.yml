@@ -15,6 +15,8 @@ jobs:
             node: '22.19.0'
           - os: ubuntu-24.04
             node: '24'
+          - os: windows-latest
+            node: '24'
           - os: macos-15
             node: '22.19.0'
     runs-on: ${{ matrix.os }}
