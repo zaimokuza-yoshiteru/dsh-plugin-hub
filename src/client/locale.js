@@ -1,5 +1,17 @@
 // Chinese source copy and its English translation, including profile-bound errors.
 export const resourceWords = {
+  "无效的实验性功能请求": "Invalid experiment request.",
+  "当前宿主不支持管理此实验性功能": "This host does not support managing this experiment.",
+  "实验性功能状态已变化，请刷新后重试": "The experiment state has changed. Refresh and try again.",
+  "仍有任务或请求正在运行，请等待完成或停止后再切换": "Tasks or requests are still running. Wait for them to finish or stop them before switching.",
+  "实验性功能切换失败，请刷新确认当前状态": "The experiment change failed. Refresh to check its current state.",
+  "宿主实验性功能接口返回了无效状态": "The host experiment API returned an invalid state.",
+  "Desktop 实验性功能需通过宿主接口操作": "Desktop experiments must be managed through the host API.",
+  "运行状态未知": "Runtime state unknown",
+  "配置已启用": "Configured to enable",
+  "配置已禁用": "Configured to disable",
+  "实验性多 Agent 协作工具与团队面板。Web 切换后需重启 DSH；支持管理的 Desktop 会自动重启后端，会话数据保留。": "Experimental multi-agent tools and team panel. Restart DSH after Web changes; supported Desktop hosts restart the backend automatically. Conversations are retained.",
+
   "HTTP 必填": "Required for HTTP",
   "HTTP 请求头，可引用环境变量。": "HTTP request headers; environment references are supported.",
   "Hub profile 配置与当前实例不一致": "Hub's configured profile does not match this instance.",

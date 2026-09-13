@@ -1,11 +1,11 @@
 # DSH Plugin Hub
 
-DSH 原生资源面板，当前版本 **0.2.0**。支持 Web 与 Desktop、中英文界面；从侧边栏打开，保留当前会话。
+DSH 原生资源面板，当前版本 **0.2.1**。支持 Web 与 Desktop、中英文界面；从侧边栏打开，保留当前会话。
 
 - **Skill**：搜索、按工作区筛选、启停、打开目录，使用 DSH 原生 Markdown 组件预览正文。
 - **MCP**：JSON/YAML 配置编辑与格式化、环境变量引用、字段帮助、启停、重连、独立连接测试和删除。
 - **Plugin**：查看当前 profile 的非官方原生插件，展示版本与来源；桌面端提供原生管理窗口入口说明。
-- **实验性功能**：管理 Agent Teams；Web 支持安装与启停，Desktop 通过原生管理窗口操作。
+- **实验性功能**：管理 Agent Teams；Web 支持安装与启停，支持实验性功能接口的 Desktop 可直接在 Hub 启停。
 
 ## 安装
 
@@ -22,6 +22,8 @@ dsh plugin --profile <当前-profile> add @zaimokuza/dsh-plugin-hub
 所有管理操作绑定当前实例的 profile。Skill 启停不会修改共享文件；MCP 删除会移除 Hub 创建的配置或当前 profile 中独立的 YAML 定义，共享文件或安装包中的定义需在来源处删除。
 
 MCP 的描述、版本和图标来自服务初始化信息。宿主未公开持续连接状态时显示“未知”，独立连接测试单独显示结果。建议在启动 DSH 时设置凭据环境变量，在 YAML 中通过 `!!js process.env.MCP_TOKEN` 引用；JSON 等价写法为 `{ "__jsExpr": "process.env.MCP_TOKEN" }`。
+
+Desktop 实验性功能通过宿主的 `window.dshDesktop.experiments` v1 接口执行，宿主完成空闲检查、配置事务和后端重启。缺少接口的 Desktop 显示不支持管理。
 
 目录操作作用于运行 DSH 的电脑。Desktop 原生管理窗口使用 macOS `Cmd+,`、Windows `Ctrl+,` 或系统菜单 **Desktop Plugins**。更多实现边界见 [原生资源说明](https://github.com/zaimokuza-yoshiteru/dsh-plugin-hub/blob/main/docs/native-resources.md)。
 

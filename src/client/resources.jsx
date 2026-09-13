@@ -105,7 +105,7 @@ function SkillPreview({ file, t, close }) {
   </aside>;
 }
 
-export function ResourceHub({ ctx, request, t, brand, panelId }) {
+export function ResourceHub({ ctx, request, experiments, t, brand, panelId }) {
   useSyncExternalStore(fn => ctx.locale.subscribe(fn), () => ctx.locale.getSnapshot().active);
   const [tab, setTab] = useState('skills'); const [scope, setScope] = useState('');
   const [file, setFile] = useState(null); const [desktopHelp, setDesktopHelp] = useState(false);
@@ -116,7 +116,12 @@ export function ResourceHub({ ctx, request, t, brand, panelId }) {
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
   const refresh = async (signal) => {
     const token = ++generation.current;
-    try { const [result, experiments] = await Promise.all([request('resources', { workspaceId: scope }, { signal }), request('experiments', {}, { signal })]); result.experiments = experiments; if (mounted.current && token === generation.current) { setData(result); setError(''); } }
+    try {
+      const result = await request('resources', { workspaceId: scope }, { signal });
+      try { result.experiments = await experiments.list(result.profile, { signal }); }
+      catch (error) { result.experiments = []; result.experimentsError = error.message; }
+      if (mounted.current && token === generation.current && !signal?.aborted) { setData(result); setError(''); }
+    }
     catch (error) { if (!signal?.aborted && mounted.current && token === generation.current) setError(error.message); }
   };
   useEffect(() => { const controller = new AbortController(); setData(null); void refresh(controller.signal); return () => controller.abort(); }, [scope]);
@@ -124,10 +129,25 @@ export function ResourceHub({ ctx, request, t, brand, panelId }) {
     setBusy(true); setError('');
     try {
       const result = await request(route, { ...body, workspaceId: scope, profile: data.profile.directory });
-      if (mounted.current && result.skills) { generation.current++; setData(previous => ({ ...result, experiments: previous.experiments })); }
+      if (mounted.current && result.skills) { generation.current++; setData(previous => ({ ...result, experiments: previous.experiments, experimentsError: previous.experimentsError })); }
       return result;
     } catch (error) { if (mounted.current) setError(error.message); throw error; }
     finally { if (mounted.current) setBusy(false); }
+  };
+  const changeExperiment = async (row, enabled, operation = 'toggle') => {
+    setBusy(true); setError(''); generation.current++;
+    let failure;
+    try { await experiments.change(data.profile, row, enabled, operation); }
+    catch (error) { failure = error.message; }
+    finally {
+      if (mounted.current) {
+        try {
+          const latest = await experiments.list(data.profile);
+          if (mounted.current) setData(previous => ({ ...previous, experiments: latest, experimentsError: undefined }));
+        } catch (error) { failure ??= error.message; }
+        if (mounted.current) { if (failure) setError(failure); setBusy(false); }
+      }
+    }
   };
   const run = (body, route) => { void action(body, route).catch(() => {}); };
   const tabs = [{ id: 'skills', label: 'Skill' }, { id: 'mcps', label: 'MCP' }, { id: 'plugins', label: 'Plugin' }, { id: 'experiments', label: t('实验性功能') }];
@@ -153,15 +173,16 @@ export function ResourceHub({ ctx, request, t, brand, panelId }) {
         </div>
         <div className="hub-results"><span>{t('当前列表')} <b>{rows.length}</b></span><span className="hub-resource-scope-note">{t(tab === 'skills' ? '开关只影响当前 profile；Skill 源文件保持原样。' : tab === 'mcps' ? 'MCP 为当前 profile 的全局服务；工作区范围只筛选 Skill。' : tab === 'plugins' ? '仅展示已安装的非官方插件' : '实验性功能')}</span></div>
         {error && <p role="alert">{t(error)}</p>}
+        {tab === 'experiments' && data?.experimentsError && <p role="alert">{t(data.experimentsError)}</p>}
         {!data && !error && <p role="status">{t('正在读取资源')}</p>}
         {data && tab === 'skills' && !data.skillsComplete && <p role="status">{t('资源尚未完整加载，请刷新重试')}</p>}
         <div className="hub-grid hub-resource-grid">{rows.map(row => <article key={row.id ?? row.name} className="hub-card hub-resource-card">
-          <div className="hub-resource-card-heading"><div className="hub-resource-identity"><ItemIcon row={row}/><h2 className="hub-resource-card-name" title={row.name}>{row.name}{(tab === 'mcps' || tab === 'plugins') && <span className="hub-resource-version">@{row.version || t('未知')}</span>}</h2></div>{tab !== 'plugins' && tab !== 'experiments' ? <Switch checked={Boolean(row.enabled)} label={`${t(row.enabled ? '禁用' : '启用')} ${row.name}`} disabled={busy || (tab === 'skills' && (!row.canToggle || (!row.enabled && !row.managed)))} title={tab === 'skills' && !row.canToggle ? t('此开关继承自其它范围，请切换范围修改') : undefined} onChange={enabled => run({ action: tab === 'skills' ? 'skill-toggle' : 'mcp-toggle', id: row.id, revision: row.revision, enabled })}/> : tab === 'experiments' ? <Switch checked={Boolean(row.enabled)} label={`${t(row.enabled ? '禁用' : '启用')} ${row.name}`} disabled={busy || !row.canToggle} onChange={enabled => { setBusy(true); void request('experiment-mutate', { id: row.id, enabled, profile: data.profile.directory }).then(() => refresh()).catch(error => setError(error.message)).finally(() => setBusy(false)); }}/> : null}</div>
+          <div className="hub-resource-card-heading"><div className="hub-resource-identity"><ItemIcon row={row}/><h2 className="hub-resource-card-name" title={row.name}>{row.name}{(tab === 'mcps' || tab === 'plugins') && <span className="hub-resource-version">@{row.version || t('未知')}</span>}</h2></div>{tab !== 'plugins' && tab !== 'experiments' ? <Switch checked={Boolean(row.enabled)} label={`${t(row.enabled ? '禁用' : '启用')} ${row.name}`} disabled={busy || (tab === 'skills' && (!row.canToggle || (!row.enabled && !row.managed)))} title={tab === 'skills' && !row.canToggle ? t('此开关继承自其它范围，请切换范围修改') : undefined} onChange={enabled => run({ action: tab === 'skills' ? 'skill-toggle' : 'mcp-toggle', id: row.id, revision: row.revision, enabled })}/> : tab === 'experiments' ? <Switch checked={Boolean(row.enabled)} label={`${t(row.enabled ? '禁用' : '启用')} ${row.name}`} disabled={busy || row.busy || !row.canToggle} onChange={enabled => { void changeExperiment(row, enabled); }}/> : null}</div>
           {tab === 'mcps' && <McpSummary row={row} t={t} activation={activation}/>}
           <p className="hub-description" title={tab === 'experiments' ? t(row.description) : row.description}>{(tab === 'experiments' ? t(row.description) : row.description) || t(tab === 'mcps' ? '服务尚未提供描述，可测试连接读取。' : '暂无描述')}</p>
           {tab === 'mcps' && <>
             {row.probe && <p className="hub-resource-meta"><Pill><StateDot state={row.probe.status === 'success' ? 'done' : 'error'}/> {t(row.probe.status === 'success' ? '测试成功' : '测试失败')} · {new Date(row.probe.at).toLocaleTimeString()}{row.probe.tools !== undefined && ` · ${t('工具数')} ${row.probe.tools}`}</Pill></p>}</>}
-          {tab === 'experiments' && <div className="hub-resource-actions"><Pill><StateDot state={row.pendingRestart ? 'warning' : row.enabled ? 'done' : 'idle'}/>{t(row.pendingRestart ? '重启 DSH 后生效' : row.enabled === null ? '未知' : row.enabled ? '已启用' : '已禁用')}</Pill>{!row.installed && <Button size="sm" disabled={busy || !row.canInstall} onClick={() => { setBusy(true); void request('experiment-mutate', { id: row.id, action: 'install', profile: data.profile.directory }).then(() => refresh()).catch(error => setError(error.message)).finally(() => setBusy(false)); }}>{t('安装 Agent Teams')}</Button>}{data.profile.installation === 'desktop' && <Button size="sm" onClick={() => setDesktopHelp(true)}>{t('桌面插件管理')}</Button>}</div>}
+          {tab === 'experiments' && <div className="hub-resource-actions"><Pill><StateDot state={row.pendingRestart ? 'warning' : row.activeEnabled ? 'done' : 'idle'}/>{t(row.busy || busy ? '实验性功能正在更新' : row.pendingRestart ? '重启 DSH 后生效' : row.activeEnabled === null ? '运行状态未知' : row.activeEnabled ? '已启用' : '已禁用')}</Pill>{row.pendingRestart && <span>{t(row.enabled ? '配置已启用' : '配置已禁用')}</span>}{!row.supported && <span>{t('当前宿主不支持管理此实验性功能')}</span>}{!row.installed && row.canInstall && <Button size="sm" disabled={busy || row.busy} onClick={() => { void changeExperiment(row, row.enabled, 'install'); }}>{t('安装 Agent Teams')}</Button>}</div>}
           {tab !== 'experiments' && <div className="hub-resource-card-footer">
           <div className="hub-resource-actions">
             {tab === 'plugins' && <><Button size="sm" disabled={busy} icon={<IconFolderOpenOutline16/>} onClick={() => run({ id: row.name, kind: 'plugin' }, 'open-directory')}>{t('打开目录')}</Button></>}

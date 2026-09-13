@@ -28,6 +28,10 @@ test('Agent Teams toggles only this profile bundles, keeps installed dependencie
  await experiments.mutate({ id: 'agent-teams', profile, enabled: false });
  const saved = JSON.parse(await readFile(file, 'utf8')); assert.deepEqual(saved.dsh.profile.bundles, ['base']); assert.equal(Object.keys(saved.dependencies).length, 2);
  assert.equal((await experiments.snapshot())[0].pendingRestart, true);
+ assert.equal((await experiments.snapshot())[0].activeEnabled, true);
+ await assert.rejects(experiments.mutate({ id: 'agent-teams', profile, enabled: true, expectedEnabled: true }), /状态已变化/);
+ await experiments.mutate({ id: 'agent-teams', profile, enabled: true, expectedEnabled: false });
+ assert.equal((await experiments.snapshot())[0].pendingRestart, false);
 });
 
 test('Desktop Agent Teams does not infer disabled from an unavailable native preference', async t => {

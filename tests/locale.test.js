@@ -5,7 +5,7 @@ import { resourceWords, translate } from '../src/client/locale.js';
 import { mcpFields } from '../src/client/mcp-help.js';
 
 test('owned UI copy, configuration help and request errors all have English translations', async () => {
-  const files = ['client/resources.jsx', 'client/mcp-help.js', 'resources.js', 'experiments.js', 'mcp-config.js', 'profile-files.js', 'dsh.js', 'index.js'];
+  const files = ['client/resources.jsx', 'client/experiments.js', 'client/mcp-help.js', 'resources.js', 'experiments.js', 'experiment-definitions.js', 'mcp-config.js', 'profile-files.js', 'dsh.js', 'index.js'];
   for (const file of files) {
     const source = await readFile(new URL('../src/' + file, import.meta.url), 'utf8');
     for (const [, text] of source.matchAll(/'([^'\n]*)'/g)) {
