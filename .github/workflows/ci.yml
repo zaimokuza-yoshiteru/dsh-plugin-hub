@@ -30,3 +30,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+  native-compatibility:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        dsh: ['0.1.5-rc.1', '0.1.5-rc.2', '0.1.6-alpha.1']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm install --prefix .local/host --ignore-scripts --no-audit --no-fund "@deepseek-ai/dsh@${{ matrix.dsh }}"
+      - run: npm run verify:native
+        env:
+          DSH_TEST_ROOT: .local/host

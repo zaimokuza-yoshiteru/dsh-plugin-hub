@@ -29,12 +29,6 @@
 .hub-resource-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
 .hub-resource-card-heading > :last-child { flex-shrink: 0; }
 .hub-resource-tab[aria-selected="true"], .hub-resource-tab[aria-pressed="true"] { background: var(--dsw-alias-interactive-bg-active); }
-/* The sidebar exports a slot, not its Settings trigger; match that trigger's geometry. */
-.hub-sidebar-button { box-sizing: border-box; flex: 1; min-width: 0; height: 42px; margin: 4px -2px; padding: 0 10px 0 8px; gap: 8px; justify-content: flex-start; border-radius: 12px; font-family: var(--dsw-font-family); }
-.hub-sidebar-button[aria-pressed="true"] { background: var(--dsw-alias-interactive-bg-active); }
-.hub-sidebar-button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hub-sidebar-button.is-rail { flex: none; width: 36px; height: 36px; margin: 8px 0 10px; padding: 0; justify-content: center; border-radius: 50%; }
-
 .hub-resource-page .hub-search-input input::placeholder { color: var(--dsw-alias-label-tertiary); opacity: 1; }
 /* Typography matches DSH's 14px controls; secondary metadata uses 12px. */
 .hub-resource-page .hub-market { font: inherit; }

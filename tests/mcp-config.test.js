@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseMcpDocument, formatMcpDocument } from '../src/mcp-config.js';
-import { validateMcp } from '../src/resources.js';
+import { validateNativeMcp } from '../src/mcp-native.js';
+import { hostSchema } from './fixtures/mcp-schema.js';
+const validateMcp = input => validateNativeMcp(hostSchema(), input);
 test('agent JSON and native YAML convert without dropping supported connection fields', () => {
  const input = { mcpServers: { sample: { type: 'http', url: 'https://example.test/mcp?token=secret', headers: { Authorization: 'Bearer secret' }, reconnect: { enabled: true, maxAttempts: 5 } } } };
  const config = validateMcp(parseMcpDocument(JSON.stringify(input)));

@@ -29,14 +29,16 @@ function npm(args, cwd = temp) {
   if (r.status !== 0) throw new Error(r.stdout + '\n' + r.stderr);
   return r.stdout;
 }
-npm(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
+npm(['ci', '--omit=dev', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
 assert.equal(manifests.length, 1);
 assert.equal(manifests[0].name, '@zaimokuza/dsh-plugin-hub');
 const installed = join(temp, 'node_modules/@zaimokuza/dsh-plugin-hub');
 const runtime = await import(pathToFileURL(join(installed, 'src/index.js')));
 assert.equal(typeof runtime.apply, 'function');
+assert(!existsSync(join(temp, 'node_modules/@modelcontextprotocol/sdk')), 'legacy SDK is test-only');
+assert(!existsSync(join(temp, 'node_modules/@modelcontextprotocol/server')), 'server SDK is test-only');
 const manifest = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
-assert.deepEqual(Object.keys(manifest.dependencies).sort(), ['@modelcontextprotocol/sdk', 'yaml']);
+assert.deepEqual(Object.keys(manifest.dependencies).sort(), ['@modelcontextprotocol/client', 'yaml']);
 const client = await readFile(join(installed, 'lib/client.js'), 'utf8');
 assert(client.includes('SKILL.md'));
 assert(!client.includes('create-dsh-plugin-hub'));

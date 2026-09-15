@@ -91,12 +91,29 @@ try {
   assert.equal((await beta.rpc('resources')).skills.find(row => row.id === 'hub-fixture').enabled, true);
   await assert.rejects(alpha.rpc('resource-mutate', { profile: beta.profile, action: 'skill-toggle', id: 'hub-fixture', enabled: true }), /profile 已变化/);
   assert.equal(await readFile(join(home, 'skills/hub-fixture/SKILL.md'), 'utf8'), fixtureSkill); checks.push('two profiles isolated; shared Skill bytes unchanged');
-  state = await alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-add', description: 'Integration fixture', config: { serverName: 'hub_fixture', transport: 'stdio', command: process.execPath, args: [resolve('tests/fixtures/mcp-server.mjs')] } });
+  const schema = await alpha.rpc('mcp-schema', { profile: alpha.profile });
+  const instructionsField = schema.fields.find(field => field.key === 'maxInstructionBytes');
+  if (hostManifest.version.startsWith('0.1.6')) assert.equal(instructionsField?.default, 32768);
+  await assert.rejects(alpha.rpc('mcp-schema', { profile: beta.profile }), /profile/);
+  const instructionConfig = instructionsField ? { maxInstructionBytes: 40000 } : {};
+  await assert.rejects(alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-add', config: {
+    serverName: 'invalid_config', transport: 'stdio', command: process.execPath,
+    ...(instructionsField ? { maxInstructionBytes: 0 } : { maxInstructionBytes: 40000 }),
+  } }), /字段/);
+  assert(!(await alpha.rpc('resources')).mcps.some(row => row.name === 'invalid_config'));
+  checks.push('host schema/defaults, invalid config rejection before persistence and profile-bound schema reads');
+  state = await alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-add', description: 'Integration fixture', config: { ...instructionConfig, serverName: 'hub_fixture', transport: 'stdio', command: process.execPath, args: [resolve('tests/fixtures/mcp-server.mjs')] } });
   let row = state.mcps.find(row => row.name === 'hub_fixture'); row = await active(alpha, row.id); assert.equal(row.connection, 'unknown');
   state = await alpha.rpc('mcp-test', { profile: alpha.profile, id: row.id, revision: row.revision }); row = state.mcps.find(item => item.id === row.id);
   assert.equal(row.probe.status, 'success'); assert.equal(row.probe.tools, 1); checks.push('native MCP activation and independent SDK handshake/tools-list');
   state = await alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-edit', id: row.id, revision: row.revision, config: { serverName: 'hub_fixture', transport: 'stdio', toolCallTimeoutMs: 42000 } });
   row = await active(alpha, row.id); assert.equal(JSON.parse((await alpha.rpc('mcp-config', { profile: alpha.profile, id: row.id, revision: row.revision })).text).toolCallTimeoutMs, 42000);
+  const editable = await alpha.rpc('mcp-config', { profile: alpha.profile, id: row.id, revision: row.revision });
+  const yaml = await alpha.rpc('mcp-format', { profile: alpha.profile, text: editable.text, format: 'yaml' });
+  const json = await alpha.rpc('mcp-format', { profile: alpha.profile, text: yaml.text, format: 'json' });
+  assert.deepEqual(JSON.parse(json.text), JSON.parse(editable.text));
+  if (instructionsField) assert.equal(JSON.parse(json.text).maxInstructionBytes, 40000);
+  checks.push('native config edits and JSON/YAML conversion preserve host-specific fields');
   state = await alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-toggle', id: row.id, revision: row.revision, enabled: false }); row = state.mcps.find(item => item.id === row.id); assert.equal(row.enabled, false);
   await alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-toggle', id: row.id, revision: row.revision, enabled: true }); row = await active(alpha, row.id);
   await alpha.rpc('resource-mutate', { profile: alpha.profile, action: 'mcp-reconnect', id: row.id, revision: row.revision }); row = await active(alpha, row.id);
@@ -138,15 +155,19 @@ try {
       await page.getByRole('tab', { name: /Skill/ }).click(); await page.screenshot({ path: join(directory, 'hub-wide.png') });
       await page.getByRole('button', { name: /折叠侧边栏|收起侧边栏|Collapse sidebar/ }).click();
       const hubButton = page.getByRole('button', { name: 'Plugin Hub', exact: true });
-      for (let index = 0; index < 50 && (await hubButton.innerText()).trim(); index++) await pause(100);
+      assert.equal(await page.locator('.hub-sidebar-button').count(), 0);
+      // The active Hub page has its own return icon; its entry is now in the
+      // conversation header (or the blank-page shell overlay), not the sidebar.
+      await page.getByRole('button', { name: /返回会话|Back to conversation/ }).click();
       assert.equal((await hubButton.innerText()).trim(), ''); assert(await hubButton.isVisible());
+      await hubButton.click();
       await pause(350);
       await page.screenshot({ path: join(directory, 'hub-collapsed.png') });
       await page.setViewportSize({ width: 700, height: 900 });
       await pause(500);
       const overflow = await page.locator('.hub-resource-page').evaluate(node => node.scrollWidth > node.clientWidth + 1); assert.equal(overflow, false);
       await page.screenshot({ path: join(directory, 'hub-narrow.png') });
-      assert.deepEqual(errors, []); checks.push('native UI tabs, collapsed icon, narrow layout and no browser errors');
+      assert.deepEqual(errors, []); checks.push('native UI tabs, top-right icon, collapsed sidebar, narrow layout and no browser errors');
     } finally { await browser.close(); }
   }
   await writeFile(join(directory, 'evidence.json'), JSON.stringify({ dsh: hostManifest.version, checks, checkedAt: new Date().toISOString() }, null, 2));

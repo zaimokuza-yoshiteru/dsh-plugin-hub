@@ -2,15 +2,13 @@ import { readFile, mkdir, realpath } from 'node:fs/promises';
 import { join, relative, isAbsolute } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { NativeMcp, MCP_MODULE as MCP } from './mcp-native.js';
+import { probeMcp } from './mcp-probe.js';
 
 import { parseMcpDocument, formatMcpDocument, parseConfigText, resolveEnvironment } from './mcp-config.js';
 
 import { findMcpDefinition, deleteMcpDefinition, atomicWrite } from './profile-files.js';
 
-const MCP = '@deepseek-ai/dsh-mcp-client';
 const fingerprint = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const inside = (root, path) => { const rel = relative(root, path); return !rel.startsWith('..') && !isAbsolute(rel); };
 const record = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -24,47 +22,11 @@ export function describeMcp(config = {}) {
   };
 }
 
-export function validateMcp(input) {
-  if (!record(input) || !/^[A-Za-z0-9_-]{1,32}$/.test(input.serverName)) throw new Error('MCP 名称只允许 1–32 位字母、数字、下划线和连字符');
-  const common = ['serverName', 'transport', 'toolCallTimeoutMs', 'failOnStartupError', 'reconnect'];
-  const allowed = [...common, ...(input.transport === 'stdio' ? ['command', 'args', 'env', 'cwd'] : ['url', 'headers'])];
-  if (Object.keys(input).some(key => !allowed.includes(key))) throw new Error('配置包含宿主不支持的字段，请核对 MCP 配置');
-  const config = { serverName: input.serverName, transport: input.transport };
-  if (input.transport === 'stdio') {
-    if (typeof input.command !== 'string' || !input.command.trim() || input.command.includes('\0')) throw new Error('需要有效的可执行命令');
-    config.command = input.command;
-    config.args = input.args ?? [];
-    if (!Array.isArray(config.args) || config.args.some(x => typeof x !== 'string')) throw new Error('args 必须是字符串数组');
-    config.env = input.env ?? {};
-    config.cwd = input.cwd ?? '';
-    if (typeof config.cwd !== 'string' || (config.cwd && !isAbsolute(config.cwd))) throw new Error('cwd 必须是绝对路径');
-  } else if (input.transport === 'streamable-http') {
-    let url; try { url = new URL(input.url); } catch { throw new Error('需要有效的 MCP URL'); }
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('MCP URL 必须使用 HTTP(S)，凭据请放入 headers');
-    config.url = url.href; config.headers = input.headers ?? {};
-  } else throw new Error('不支持的 MCP 协议');
-  for (const map of [config.env, config.headers].filter(Boolean)) {
-    if (!record(map) || Object.values(map).some(x => typeof x !== 'string')) throw new Error('env / headers 必须是字符串键值对象');
-  }
-  config.toolCallTimeoutMs = input.toolCallTimeoutMs ?? 60000;
-  if (!Number.isInteger(config.toolCallTimeoutMs) || config.toolCallTimeoutMs < 1000 || config.toolCallTimeoutMs > 300000) throw new Error('超时时间必须在 1000–300000 毫秒之间');
-  config.failOnStartupError = input.failOnStartupError ?? false;
-  if (typeof config.failOnStartupError !== 'boolean') throw new Error('failOnStartupError 必须是布尔值');
-  if (input.reconnect !== undefined) {
-    if (!record(input.reconnect) || Object.keys(input.reconnect).some(key => !['enabled', 'initialDelayMs', 'maxDelayMs', 'maxAttempts'].includes(key))) throw new Error('reconnect 配置无效');
-    config.reconnect = { ...input.reconnect };
-    for (const [key, value] of Object.entries(config.reconnect)) {
-      if (key === 'enabled' ? typeof value !== 'boolean' : !Number.isSafeInteger(value) || value < 1 || (key !== 'maxAttempts' && value > 2147483647)) throw new Error('reconnect 配置无效');
-    }
-    if (config.reconnect.initialDelayMs && config.reconnect.maxDelayMs && config.reconnect.initialDelayMs > config.reconnect.maxDelayMs) throw new Error('重连初始间隔不能超过最大间隔');
-  }
-  return config;
-}
-
 /** Native resource adapter. Its durable state belongs exclusively to the boot profile. */
 export class NativeResources {
   constructor(ctx, environment, directory, inventory) {
     Object.assign(this, { ctx, environment, directory, inventory });
+    this.mcp = new NativeMcp(ctx.loader);
     this.file = join(directory, 'resources.json');
     this.state = { version: 1, skills: [], mcps: [], overrides: {} };
     this.tail = Promise.resolve(); this.fibers = new Map(); this.applied = new WeakMap(); this.probes = new Map(); this.loadErrors = new Map();
@@ -150,8 +112,8 @@ export class NativeResources {
     for (const row of this.state.mcps) {
       if (row.enabled && !this.fibers.has(row.id)) {
         try {
-          const module = await this.ctx.loader.import(MCP);
-          this.fibers.set(row.id, this.ctx.plugin(module, validateMcp(resolveEnvironment(row.config))));
+          const module = await this.mcp.module();
+          this.fibers.set(row.id, this.ctx.plugin(module, await this.mcp.validate(resolveEnvironment(row.config))));
           this.loadErrors.delete(row.id);
         } catch (error) { this.loadErrors.set(row.id, error.message); }
       }
@@ -218,6 +180,10 @@ export class NativeResources {
       return { text: formatMcpDocument(config, data.format ?? 'json') };
     });
   }
+  async configurationSchema(data) {
+    if (data.profile !== this.environment.profileDir) throw new Error('实例 profile 已变化，请刷新');
+    return { fields: await this.mcp.fields() };
+  }
   formatConfiguration(data) {
     if (data.profile !== this.environment.profileDir) throw new Error('实例 profile 已变化，请刷新');
     return { text: formatMcpDocument(parseConfigText(data.text), data.format) };
@@ -243,7 +209,7 @@ export class NativeResources {
         const previous = next.mcps.find(row => row.id === data.id);
         const entry = this.entries().find(entry => this.entryId(entry) === data.id);
         const raw = data.text !== undefined ? parseMcpDocument(data.text) : { ...(previous?.config ?? entry?.options.config ?? {}), ...data.config };
-        validateMcp(resolveEnvironment(raw));
+        await this.mcp.validate(resolveEnvironment(raw));
         const config = raw;
         if (snapshot.mcps.some(row => row.name === config.serverName && row.id !== data.id)) throw new Error('当前 profile 已有同名 MCP');
         if (data.action === 'mcp-add') next.mcps.push({ id: `hub-${randomUUID()}`, config, enabled: true });
@@ -300,24 +266,8 @@ export class NativeResources {
     const raw = row?.config ?? entry?.options.config;
     const config = raw && resolveEnvironment(raw);
     if (!config) throw new Error('当前 MCP 没有可用的已解析配置，请先启用');
-    const client = new Client({ name: 'dsh-plugin-hub-probe', version: '1.0.0' });
-    const abort = AbortSignal.any([this.lifecycle.signal, signal ?? new AbortController().signal, AbortSignal.timeout(15000)]);
-    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [],
-      env: { ...Object.fromEntries(['PATH', 'HOME', 'USERPROFILE', 'SystemRoot', 'TMPDIR', 'TEMP', 'LANG'].filter(k => process.env[k]).map(k => [k, process.env[k]])), ...config.env },
-      cwd: config.cwd || undefined, stderr: 'ignore',
-    }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers: config.headers } });
-    const started = Date.now();
-    let onAbort;
-    const cancellation = new Promise((_, reject) => {
-      onAbort = () => { void transport.close(); reject(abort.reason); };
-      abort.addEventListener('abort', onAbort, { once: true });
-    });
-    try {
-      if (abort.aborted) throw abort.reason;
-      const result = await Promise.race([(async () => { await client.connect(transport); return client.getServerCapabilities()?.tools ? client.listTools({}, { signal: abort, timeout: 15000 }) : { tools: [] }; })(), cancellation]);
-      this.probes.set(data.id, { status: 'success', tools: result.tools.length, version: client.getServerVersion()?.version ?? null, icon: safeIcon(client.getServerVersion()?.icons?.[0]?.src), description: String(client.getServerVersion()?.description ?? client.getInstructions() ?? '').slice(0, 8000), durationMs: Date.now() - started, at: new Date().toISOString() });
-    } catch { this.probes.set(data.id, { status: 'failed', at: new Date().toISOString(), durationMs: Date.now() - started }); }
-    finally { abort.removeEventListener('abort', onAbort); await client.close().catch(() => {}); }
+    const validated = await this.mcp.validate(config);
+    this.probes.set(data.id, await probeMcp(validated, { signal: AbortSignal.any([this.lifecycle.signal, ...(signal ? [signal] : [])]) }));
     return this.snapshot(data.workspaceId, data.presetId);
   }
   async skillFile(data) {

@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Button, Input, Menu, Modal, Pill, Tag, StateDot, Switch, Tooltip, MarkdownText,
+import { Button, Input, Menu, Pill, StateDot, Switch, Tooltip, MarkdownText,
   IconCordisPluginOutline14, IconSearchOutline16, IconRefreshOutline16, IconFolderOpenOutline16, IconCloseOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives';
 import css from './resources.css';
-import { mcpFields } from './mcp-help.js';
+import { McpEditor, McpSummary } from './mcp.jsx';
+import { HubIconButton } from './entry.jsx';
+import { ResourceModal } from './resource-modal.jsx';
 import marketCss from './market.css';
 
 
@@ -19,74 +21,6 @@ function ScopePicker({ data, scope, setScope, t, disabled }) {
   return <Menu open={open} onClose={() => setOpen(false)} items={items} selectedId={scope} portal align="end"
     onSelect={id => { setOpen(false); setScope(id); }}
     anchor={<Button size="md" disabled={disabled} aria-label={t('资源范围')} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>{items.find(row => row.id === scope)?.label ?? t('全局')}</Button>}/>;
-}
-
-function ResourceModal(props) {
-  // The layout's Escape shortcut otherwise closes the panel underneath the native Modal.
-  useEffect(() => {
-    if (!props.open) return;
-    const escape = event => {
-      if (event.key !== 'Escape' || event.isComposing) return;
-      event.preventDefault(); event.stopImmediatePropagation(); props.onClose();
-    };
-    window.addEventListener('keydown', escape, true);
-    return () => window.removeEventListener('keydown', escape, true);
-  }, [props.open, props.onClose]);
-  return <Modal {...props}/>;
-}
-
-function McpEditor({ row, t, busy, save, close, request, profile }) {
-  const [format, setFormat] = useState('json');
-  const [help, setHelp] = useState(false);
-  const [text, setText] = useState(JSON.stringify({ serverName: 'my_server', transport: 'stdio', command: 'npx', args: ['-y', 'mcp-server-package'] }, null, 2));
-  const [loading, setLoading] = useState(Boolean(row));
-  const [error, setError] = useState('');
-  const [ready, setReady] = useState(!row);
-  useEffect(() => {
-    if (!row) return;
-    const controller = new AbortController();
-    request('mcp-config', { id: row.id, revision: row.revision, profile, format: 'json' }, { signal: controller.signal }).then(result => {
-      if (!controller.signal.aborted) { setText(result.text); setReady(true); }
-    }).catch(error => { if (!controller.signal.aborted) setError(error.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [row, profile, request]);
-  const convert = async target => {
-    setLoading(true); setError('');
-    try { const result = await request('mcp-format', { text, format: target, profile }); setText(result.text); setFormat(target); }
-    catch (error) { setError(error.message); }
-    finally { setLoading(false); }
-  };
-  const submit = async event => {
-    event.preventDefault(); setError('');
-    try { await save({ action: row ? 'mcp-edit' : 'mcp-add', ...(row ? { id: row.id, revision: row.revision } : {}), text }); }
-    catch (error) { setError(error.message); }
-  };
-  const blocked = busy || loading;
-  return <ResourceModal open className={`hub-resource-dialog hub-resource-editor-dialog ${help ? 'with-help' : ''}`} contentClassName="hub-resource-dialog-scroll" title={t(row ? '编辑' : '添加 MCP')} closeLabel={t('关闭')} onClose={blocked ? () => {} : close}
-    footer={<div className="hub-resource-actions"><Button size="md" disabled={blocked} onClick={close}>{t('取消')}</Button><Button size="md" variant="primary" type="submit" form="hub-mcp-editor" disabled={blocked || !ready}>{t('保存')}</Button></div>}>
-    <div className="hub-editor-columns"><form id="hub-mcp-editor" className="hub-resource-form" onSubmit={submit}>
-      <div className="hub-resource-actions" role="group" aria-label={t('配置格式')}>{['json', 'yaml'].map(value => <Button key={value} size="md" className="hub-resource-tab" aria-pressed={format === value} disabled={blocked || !ready} onClick={() => { void convert(value); }}>{value.toUpperCase()}</Button>)}<Button size="md" disabled={blocked || !ready} onClick={() => { void convert(format); }}>{t('格式化')}</Button></div>
-      <div className="hub-resource-editor-note">{t('推荐在启动 DSH 的环境中设置凭据。YAML 使用')} <code>!!js process.env.MCP_TOKEN</code>{t('；JSON 使用')} <code>{'{"__jsExpr":"process.env.MCP_TOKEN"}'}</code><Button size="md" aria-expanded={help} onClick={() => setHelp(!help)}>{t('帮助')}</Button></div>
-      {loading && <p role="status">{t('正在读取配置')}</p>}
-      <label className="hub-resource-field">{t('MCP 配置')}<textarea className="hub-resource-code" value={ready ? text : ''} onChange={event => setText(event.target.value)} disabled={blocked || !ready} spellCheck={false} autoCapitalize="off" autoComplete="off" maxLength={24000} required/></label>
-      {error && <p role="alert">{t(error)}</p>}
-    </form>{help && <aside className="hub-editor-help"><h3>{t('MCP 配置帮助')}</h3><p>macOS / Linux: <code>export MCP_TOKEN=…</code><br/>Windows PowerShell: <code>$env:MCP_TOKEN=…</code></p><p>{t('下列默认值由 DSH 提供；切换格式不会补入这些字段。')}</p><dl>{mcpFields.map(([key, description, fallback]) => <div key={key}><dt><code>{key}</code></dt><dd>{t(description)}<span>{t(fallback.includes('必填') ? '要求' : '默认值')} · {fallback.includes('必填') ? t(fallback) : fallback}</span></dd></div>)}</dl></aside>}</div>
-  </ResourceModal>;
-}
-
-function McpSummary({ row, t, activation }) {
-  const endpoint = row.endpoint || '';
-  let endpointLabel = endpoint;
-  if (row.transport === 'stdio') endpointLabel = endpoint.split(/[\\/]/).filter(Boolean).pop() || endpoint;
-  else { try { endpointLabel = new URL(endpoint).host; } catch { /* Keep non-URL endpoint metadata readable. */ } }
-  const loaded = activation(row.activation);
-  return <div className="hub-mcp-summary">
-    <div className="hub-mcp-statuses">
-      <Tooltip label={`${t('加载状态')} · ${loaded}`}><span tabIndex={0}><Tag tone={({ active: 'success', loading: 'info', unloading: 'info', failed: 'danger' })[row.activation] ?? 'neutral'}>{loaded === t('未知') ? t('加载未知') : loaded}</Tag></span></Tooltip>
-      <Tooltip label={t('宿主未公开持续连接状态；已加载不代表连接成功。')}><span tabIndex={0}><Tag tone="neutral">{t('连接未知')}</Tag></span></Tooltip>
-    </div>
-    <Tooltip label={`${row.transport}${endpoint ? ' · ' + endpoint : ''}`}><span className="hub-mcp-endpoint" tabIndex={0}><Tag tone="neutral">{row.transport === 'streamable-http' ? 'HTTP' : row.transport === 'unknown' ? t('未知') : row.transport}</Tag>{endpointLabel && <code>{endpointLabel}</code>}</span></Tooltip>
-  </div>;
 }
 
 function SkillPreview({ file, t, close }) {
@@ -157,7 +91,7 @@ export function ResourceHub({ ctx, request, experiments, t, brand, panelId }) {
   return <section className={`hub-resource-page ${file ? 'with-file' : ''}`} aria-label={brand.title}>
     <style>{marketCss}{css}</style>
     <div className="hub-market hub-resource-content" style={{ '--red': brand.primaryColor }}>
-    <div className="hub-topline"><div className="hub-brand"><span className="hub-brandmark"><IconCordisPluginOutline14 size={17}/></span>{brand.title}<span className="hub-divider"/>{brand.subTitle}</div><Button size="md" onClick={() => ctx.layout.selectPanel(null)} icon={<IconCloseOutline16/>}>{t('返回会话')}</Button></div>
+    <div className="hub-topline"><div className="hub-brand"><span className="hub-brandmark"><IconCordisPluginOutline14 size={17}/></span>{brand.title}<span className="hub-divider"/>{brand.subTitle}</div><HubIconButton label={t('返回会话')} selected onClick={() => ctx.layout.selectPanel(null)}/></div>
     <header className="hub-header"><div><span className="hub-eyebrow">SKILLS · MCP · PLUGINS</span><h1>{t('资源管理')}<span>.</span></h1><p>{t('在当前实例中管理 Skill、MCP 和插件。')}</p></div><div className="hub-header-art" aria-hidden="true"><IconCordisPluginOutline14 size={38}/><span className="hub-art-plus">+</span><span className="hub-art-dot"/></div></header>
     <div className="hub-resource-profile"><Pill>{t('当前 profile')} · {data?.profile.name ?? '…'}</Pill><span className="hub-resource-path" title={data?.profile.directory}>{data?.profile.directory ?? '…'}</span></div>
     <div role="tablist" className="hub-tabs" aria-label={brand.title} onKeyDown={event => {
@@ -179,7 +113,7 @@ export function ResourceHub({ ctx, request, experiments, t, brand, panelId }) {
         <div className="hub-grid hub-resource-grid">{rows.map(row => <article key={row.id ?? row.name} className="hub-card hub-resource-card">
           <div className="hub-resource-card-heading"><div className="hub-resource-identity"><ItemIcon row={row}/><h2 className="hub-resource-card-name" title={row.name}>{row.name}{(tab === 'mcps' || tab === 'plugins') && <span className="hub-resource-version">@{row.version || t('未知')}</span>}</h2></div>{tab !== 'plugins' && tab !== 'experiments' ? <Switch checked={Boolean(row.enabled)} label={`${t(row.enabled ? '禁用' : '启用')} ${row.name}`} disabled={busy || (tab === 'skills' && (!row.canToggle || (!row.enabled && !row.managed)))} title={tab === 'skills' && !row.canToggle ? t('此开关继承自其它范围，请切换范围修改') : undefined} onChange={enabled => run({ action: tab === 'skills' ? 'skill-toggle' : 'mcp-toggle', id: row.id, revision: row.revision, enabled })}/> : tab === 'experiments' ? <Switch checked={Boolean(row.enabled)} label={`${t(row.enabled ? '禁用' : '启用')} ${row.name}`} disabled={busy || row.busy || !row.canToggle} onChange={enabled => { void changeExperiment(row, enabled); }}/> : null}</div>
           {tab === 'mcps' && <McpSummary row={row} t={t} activation={activation}/>}
-          <p className="hub-description" title={tab === 'experiments' ? t(row.description) : row.description}>{(tab === 'experiments' ? t(row.description) : row.description) || t(tab === 'mcps' ? '服务尚未提供描述，可测试连接读取。' : '暂无描述')}</p>
+          <p className="hub-description" title={tab === 'experiments' ? t(row.description) : row.description}>{(tab === 'experiments' ? t(row.description) : row.description) || t(tab === 'mcps' ? (row.probe?.status === 'success' ? '服务未提供描述。' : '服务尚未提供描述，可测试连接读取。') : '暂无描述')}</p>
           {tab === 'mcps' && <>
             {row.probe && <p className="hub-resource-meta"><Pill><StateDot state={row.probe.status === 'success' ? 'done' : 'error'}/> {t(row.probe.status === 'success' ? '测试成功' : '测试失败')} · {new Date(row.probe.at).toLocaleTimeString()}{row.probe.tools !== undefined && ` · ${t('工具数')} ${row.probe.tools}`}</Pill></p>}</>}
           {tab === 'experiments' && <div className="hub-resource-actions"><Pill><StateDot state={row.pendingRestart ? 'warning' : row.activeEnabled ? 'done' : 'idle'}/>{t(row.busy || busy ? '实验性功能正在更新' : row.pendingRestart ? '重启 DSH 后生效' : row.activeEnabled === null ? '运行状态未知' : row.activeEnabled ? '已启用' : '已禁用')}</Pill>{row.pendingRestart && <span>{t(row.enabled ? '配置已启用' : '配置已禁用')}</span>}{!row.supported && <span>{t('当前宿主不支持管理此实验性功能')}</span>}{!row.installed && row.canInstall && <Button size="sm" disabled={busy || row.busy} onClick={() => { void changeExperiment(row, row.enabled, 'install'); }}>{t('安装 Agent Teams')}</Button>}</div>}
@@ -198,9 +132,4 @@ export function ResourceHub({ ctx, request, experiments, t, brand, panelId }) {
     {editor && <McpEditor request={request} profile={data.profile.directory} row={editor.id ? editor : null} t={t} busy={busy} close={() => setEditor(null)} save={async body => { await action(body); setEditor(null); }}/>}
     <ResourceModal className="hub-resource-dialog" contentClassName="hub-resource-dialog-scroll" open={Boolean(deleting)} title={t('确认删除')} closeLabel={t('关闭')} onClose={() => setDeleting(null)} footer={<div className="hub-resource-actions"><Button disabled={busy} onClick={() => setDeleting(null)}>{t('取消')}</Button><Button variant="primary" disabled={busy} onClick={() => { void action({ action: 'mcp-delete', id: deleting.id, revision: deleting.revision }).then(() => setDeleting(null)).catch(() => {}); }}>{t('删除')}</Button></div>}><p>{deleting?.name}</p><p>{t('删除会断开该 MCP，并移除对应的配置条目。')}</p></ResourceModal>
   </section>;
-}
-
-export function HubSidebarButton({ wide, usePanelInfo, ctx, panelId, brand }) {
-  const selected = usePanelInfo(state => state.activePanelId === panelId);
-  return <><style>{css}</style><Tooltip label={brand.navTitle} disabled={wide}><Button className={`hub-sidebar-button ${wide ? 'is-wide' : 'is-rail'}`} aria-label={brand.navTitle} aria-pressed={selected} icon={<IconCordisPluginOutline14 size={18}/>} onClick={() => ctx.layout.selectPanel(selected ? null : panelId)}>{wide && <span>{brand.navTitle}</span>}</Button></Tooltip></>;
 }

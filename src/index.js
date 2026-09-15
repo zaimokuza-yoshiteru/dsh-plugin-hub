@@ -24,6 +24,7 @@ export async function apply(ctx, options = {}) {
     if (path === 'resources') return resources.snapshot(data.workspaceId, data.presetId);
     if (path === 'resource-mutate') return resources.mutate(data);
     if (path === 'mcp-config') return resources.configuration(data);
+    if (path === 'mcp-schema') return resources.configurationSchema(data);
     if (path === 'mcp-format') return resources.formatConfiguration(data);
     if (path === 'mcp-test') return resources.test(data, signal);
     if (path === 'open-directory') return resources.open(data);
@@ -34,7 +35,7 @@ export async function apply(ctx, options = {}) {
   };
   // The shared RPC interceptor belongs to DSH's Gateway. Exact Fetch routes
   // compose ahead of it on both the HTTP carrier and Desktop's worker carrier.
-  for (const path of ['resources', 'resource-mutate', 'mcp-config', 'mcp-format', 'mcp-test', 'open-directory', 'skill-file', 'experiments', 'experiment-mutate']) {
+  for (const path of ['resources', 'resource-mutate', 'mcp-config', 'mcp-schema', 'mcp-format', 'mcp-test', 'open-directory', 'skill-file', 'experiments', 'experiment-mutate']) {
     ctx.effect(() => ctx.connection.fetch.register({ path: `/api/${identity.service}/${path}`, methods: ['POST'], requestBody: 'buffered', async fetch(request) {
       let envelope;
       try { envelope = await request.json(); } catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }

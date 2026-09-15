@@ -2,20 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resourceWords, translate } from '../src/client/locale.js';
-import { mcpFields } from '../src/client/mcp-help.js';
+import { mcpDescriptions } from '../src/client/mcp-help.js';
 
 test('owned UI copy, configuration help and request errors all have English translations', async () => {
-  const files = ['client/resources.jsx', 'client/experiments.js', 'client/mcp-help.js', 'resources.js', 'experiments.js', 'experiment-definitions.js', 'mcp-config.js', 'profile-files.js', 'dsh.js', 'index.js'];
+  const files = ['client/resources.jsx', 'client/entry.jsx', 'client/mcp.jsx', 'client/resource-modal.jsx', 'mcp-native.js', 'mcp-probe.js', 'client/experiments.js', 'client/mcp-help.js', 'resources.js', 'experiments.js', 'experiment-definitions.js', 'mcp-config.js', 'profile-files.js', 'dsh.js', 'index.js'];
   for (const file of files) {
     const source = await readFile(new URL('../src/' + file, import.meta.url), 'utf8');
     for (const [, text] of source.matchAll(/'([^'\n]*)'/g)) {
       if (/[\u4e00-\u9fff]/u.test(text)) assert(resourceWords[text], `${file}: missing translation for ${text}`);
     }
   }
-  for (const [key, description, fallback] of mcpFields) {
-    assert(resourceWords[description], key);
-    if (/[\u4e00-\u9fff]/u.test(fallback)) assert(resourceWords[fallback], key);
-  }
+  for (const [key, description] of Object.entries(mcpDescriptions)) assert(resourceWords[description], key);
   for (const [key, value] of Object.entries(resourceWords)) {
     assert(value.trim(), key);
     assert.doesNotMatch(value, /[\u4e00-\u9fff]/u, key);

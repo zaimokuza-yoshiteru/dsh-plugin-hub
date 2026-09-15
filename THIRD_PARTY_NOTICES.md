@@ -16,6 +16,6 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Runtime dependencies @modelcontextprotocol/sdk and yaml, and build dependencies esbuild and React retain their own licenses. Their precise versions are recorded in package-lock.json.
+Runtime dependencies @modelcontextprotocol/client and yaml, and development/test dependencies @modelcontextprotocol/sdk, @modelcontextprotocol/server, @modelcontextprotocol/node, @deepseek-ai/schemastery, esbuild and React retain their own licenses. Their precise versions are recorded in package-lock.json.
 
 The UI consumes the host-provided `@deepseek-ai/dsh-client-ui-primitives` (Input, Button, Menu and Modal). These components and their styles are resolved from the DSH module table, not copied or bundled into this plugin.

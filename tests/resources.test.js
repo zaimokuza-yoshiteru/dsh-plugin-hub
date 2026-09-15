@@ -4,7 +4,10 @@ import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { NativeResources, describeMcp, validateMcp } from '../src/resources.js';
+import { NativeResources, describeMcp } from '../src/resources.js';
+import { hostSchema } from './fixtures/mcp-schema.js';
+import { validateNativeMcp } from '../src/mcp-native.js';
+const validateMcp = input => validateNativeMcp(hostSchema(), input);
 import { dshEnvironment } from '../src/dsh.js';
 import { connectionRequest } from '../src/client/api.js';
 
@@ -23,7 +26,7 @@ async function fixture(t, name = 'alpha') {
       return { skills: overrides.length ? overrides : [original], complete: true };
     } },
     workspaceRegistry: { list: () => [{ id: 'project', path: project, title: 'Project' }] },
-    loader: { entries: () => entries, import: async () => ({ apply() {} }) },
+    loader: { entries: () => entries, import: async () => ({ Config: hostSchema(), apply() {} }) },
     plugin: () => ({ state: 2, dispose: async () => {} }),
   };
   const environment = { profileDir, profile: name, installation: 'cli' };
@@ -87,9 +90,9 @@ test('native entry toggles persist in Hub and do not call tree write or overwrit
 });
 
 test('MCP configuration validates protocol, names and structure before side effects', () => {
-  assert.throws(() => validateMcp({ serverName: '../oops' }), /名称/);
+  assert.throws(() => validateMcp({ serverName: '../oops', transport: 'stdio', command: 'node' }), /字段类型/);
   assert.throws(() => validateMcp({ serverName: 'ok', transport: 'sse' }), /协议/);
-  assert.throws(() => validateMcp({ serverName: 'ok', transport: 'stdio', command: 'node', args: 'shell string' }), /数组/);
+  assert.throws(() => validateMcp({ serverName: 'ok', transport: 'stdio', command: 'node', args: 'shell string' }), /字段类型/);
   assert.throws(() => validateMcp({ serverName: 'ok', transport: 'streamable-http', url: 'file:///etc/passwd' }), /HTTP/);
 });
 
