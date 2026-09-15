@@ -91,7 +91,7 @@ export function ResourceHub({ ctx, request, experiments, t, brand, panelId }) {
   return <section className={`hub-resource-page ${file ? 'with-file' : ''}`} aria-label={brand.title}>
     <style>{marketCss}{css}</style>
     <div className="hub-market hub-resource-content" style={{ '--red': brand.primaryColor }}>
-    <div className="hub-topline"><div className="hub-brand"><span className="hub-brandmark"><IconCordisPluginOutline14 size={17}/></span>{brand.title}<span className="hub-divider"/>{brand.subTitle}</div><HubIconButton label={t('返回会话')} selected onClick={() => ctx.layout.selectPanel(null)}/></div>
+    <div className="hub-topline"><div className="hub-brand"><span className="hub-brandmark"><IconCordisPluginOutline14 size={17}/></span>{brand.title}<span className="hub-divider"/>{brand.subTitle}</div><HubIconButton label={t('返回会话')} icon={<IconCloseOutline16 size={18}/>} onClick={() => ctx.layout.selectPanel(null)}/></div>
     <header className="hub-header"><div><span className="hub-eyebrow">SKILLS · MCP · PLUGINS</span><h1>{t('资源管理')}<span>.</span></h1><p>{t('在当前实例中管理 Skill、MCP 和插件。')}</p></div><div className="hub-header-art" aria-hidden="true"><IconCordisPluginOutline14 size={38}/><span className="hub-art-plus">+</span><span className="hub-art-dot"/></div></header>
     <div className="hub-resource-profile"><Pill>{t('当前 profile')} · {data?.profile.name ?? '…'}</Pill><span className="hub-resource-path" title={data?.profile.directory}>{data?.profile.directory ?? '…'}</span></div>
     <div role="tablist" className="hub-tabs" aria-label={brand.title} onKeyDown={event => {

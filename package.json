@@ -1,6 +1,6 @@
 {
   "name": "@zaimokuza/dsh-plugin-hub",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "description": "Native DSH resource hub: Skills, MCP, third-party plugins and experiments",
   "type": "module",

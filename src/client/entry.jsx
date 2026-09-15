@@ -7,8 +7,8 @@ const css = `
 body:has(.hub-header-entry) .hub-entry-fallback { display: none; }
 `;
 
-export function HubIconButton({ label, selected = false, onClick }) {
-  return <><style>{css}</style><Tooltip label={label} side="bottom"><Button className="hub-entry-button" aria-label={label} aria-pressed={selected} icon={<IconCordisPluginOutline14 size={18}/>} onClick={onClick}/></Tooltip></>;
+export function HubIconButton({ label, icon = <IconCordisPluginOutline14 size={18}/>, onClick }) {
+  return <><style>{css}</style><Tooltip label={label} side="bottom"><Button className="hub-entry-button" aria-label={label} icon={icon} onClick={onClick}/></Tooltip></>;
 }
 
 export function HubHeaderEntry({ ctx, panelId, brand }) {
